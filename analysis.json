@@ -1,0 +1,15 @@
+{
+  "explicacion": "Oportunidad de Spot Fib DCA generada tras una caída del 5.24% desde $64,700 hasta $61,306.8. La zona de entrada sugerida (Fib 618-786) ofrece un punto de reacción natural, pero el precio actual ($62,835.62) ya supera ampliamente esa zona y también el Fib 618 ($62,603), eliminando la ventaja de la entrada. La señal de reversal es falsa y no hay stop loss definido, lo que añade riesgos significativos.",
+  "factores": [
+    "Estructura Fib DCA clásica con zona de acumulación entre 618 y 786 bien definida",
+    "RSI en 56.8 — neutral, sin sobrecompra ni sobreventa que invalide el movimiento",
+    "Objetivo en Fib 500 ($63,003.4) está solo ~0.26% por encima del precio actual, alcanzable en horas"
+  ],
+  "riesgos": [
+    "El precio ya superó la zona de entrada en ~$492 — no hay oportunidad real de entrar en el rango sugerido",
+    "Sin stop loss definido; si el precio continúa bajando no hay protección contra pérdidas",
+    "Reversal falso sugiere que no hay señal de cambio de tendencia — podría ser solo un rebote temporal"
+  ],
+  "confianza": 4,
+  "horizonte": "horas"
+}

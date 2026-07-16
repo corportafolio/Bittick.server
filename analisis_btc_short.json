@@ -1,0 +1,14 @@
+{
+  "explicacion": "Oportunidad de short por rechazo en la parte superior del rango actual (soporte $61,705 - resistencia $63,283). El precio cotiza a solo 0.89% de la resistencia, lo que sugiere un posible retroceso hacia el soporte. El riesgo principal es que el rango es estrecho (2.56%) y el R:R no es favorable (riesgo ~4% vs beneficio ~1.5%).",
+  "factores": [
+    "Precio cerca de la resistencia del rango ($63,283) con solo 0.89% de distancia, zona óptima para short",
+    "Objetivo alineado con el soporte del rango ($61,705), dando una referencia técnica clara",
+    "Setup range_short con estructura de mercado lateral definida, facilitando gestión de riesgo"
+  ],
+  "riesgos": [
+    "Riesgo/Beneficio desfavorable: stop loss ~4% arriba vs objetivo ~1.5% abajo",
+    "Posible ruptura alcista del rango si el precio supera la resistencia con volumen"
+  ],
+  "confianza": 5,
+  "horizonte": "horas"
+}

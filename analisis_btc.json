@@ -1,0 +1,14 @@
+{
+  "explicacion": "Oportunidad de SHORT en BTCUSDT por rechazo en zona de resistencia del rango ($63,283.3). El precio se encuentra solo a 0.86% de la resistencia, dentro del 2.58% de rango, lo que sugiere un movimiento de regreso hacia el soporte en $61,692. El stop loss por encima del rango protege contra rupturas alcistas falsas.",
+  "factores": [
+    "Precio en la parte alta del rango, cerca de la resistencia de $63,283.3, ideal para short con buen riesgo/recompensa",
+    "Distancia a resistencia de solo 0.86% indica que el precio ya está agotando el movimiento alcista dentro del rango",
+    "Rango definido del 2.58% permite un target claro en $61,692 con stop loss estructurado en $65,181.76"
+  ],
+  "riesgos": [
+    "Posible ruptura alcista de la resistencia si el volumen de compra aumenta, invalidando el short",
+    "El mercado de Bitcoin puede presentar alta volatilidad intradía que exceda el rango esperado"
+  ],
+  "confianza": 7,
+  "horizonte": "horas"
+}
