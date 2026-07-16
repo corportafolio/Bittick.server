@@ -9,6 +9,7 @@ const logger = require('./src/logger/logger');
 const tradingRouter = require('./src/trading/tradingRouter');
 const tradingScheduler = require('./src/trading/tradingScheduler');
 const chartRouter = require('./src/chart/chartRouter');
+const authRouter = require('./src/auth/authRouter');
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/trading', tradingRouter);
 app.use('/api/chart', chartRouter);
+app.use('/api/auth', authRouter);
 
 app.use((err, req, res, next) => {
   logger.error('server', `Error: ${err.message}`);

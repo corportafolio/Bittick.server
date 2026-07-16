@@ -138,4 +138,59 @@ router.post('/bot/config', (req, res) => {
   }
 });
 
+// Inscription preferences endpoints (per-inscription bot settings)
+router.get('/preferences/:inscriptionId', (req, res) => {
+  try {
+    const { inscriptionId } = req.params;
+    let prefs = store.getInscriptionPreferences(inscriptionId);
+    if (!prefs) {
+      prefs = {
+        inscription_id: inscriptionId,
+        spot_enabled: 1,
+        futures_enabled: 1,
+        spot_position_size: 10.0,
+        futures_position_size: 10.0,
+        spot_max_positions: 5,
+        futures_max_positions: 5,
+        spot_min_score: 6,
+        futures_min_score: 7
+      };
+    }
+    res.json({ exito: true, data: prefs });
+  } catch (error) {
+    logger.error('trading-api', `GET preferences error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.post('/preferences', (req, res) => {
+  try {
+    const { inscriptionId, address, spot_enabled, futures_enabled, spot_position_size, futures_position_size, spot_max_positions, futures_max_positions, spot_min_score, futures_min_score } = req.body;
+    if (!inscriptionId || !address) {
+      return res.status(400).json({ exito: false, error: 'inscriptionId and address are required' });
+    }
+    store.upsertInscriptionPreferences(inscriptionId, address, {
+      spot_enabled, futures_enabled, spot_position_size, futures_position_size,
+      spot_max_positions, futures_max_positions, spot_min_score, futures_min_score
+    });
+    res.json({ exito: true, message: 'Preferences saved' });
+  } catch (error) {
+    logger.error('trading-api', `POST preferences error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+// Bot status by inscription (positions opened by a specific inscription)
+router.get('/bot/status/:inscriptionId', async (req, res) => {
+  try {
+    const { inscriptionId } = req.params;
+    const openPositions = store.getPositionsByInscription(inscriptionId, 'open');
+    const closedPositions = store.getPositionsByInscription(inscriptionId, 'closed');
+    res.json({ exito: true, data: { inscriptionId, open: openPositions, closed: closedPositions } });
+  } catch (error) {
+    logger.error('trading-api', `Bot status by inscription error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
 module.exports = router;

@@ -19,7 +19,7 @@ async function init() {
     db = new SQL.Database();
   }
 
-  db.run(`CREATE TABLE IF NOT EXISTS opportunities (
+db.run(`CREATE TABLE IF NOT EXISTS opportunities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     asset TEXT NOT NULL,
     strategy_type TEXT NOT NULL,
@@ -71,11 +71,15 @@ async function init() {
     pnl_percent REAL DEFAULT 0,
     opened_at TEXT NOT NULL DEFAULT (datetime('now')),
     closed_at TEXT,
-    opportunity_id INTEGER
+    opportunity_id INTEGER,
+    inscription_id TEXT,
+    address TEXT
   )`);
 
   try { db.run("ALTER TABLE positions ADD COLUMN horizonte TEXT DEFAULT 'horas'"); } catch (e) {}
   try { db.run("ALTER TABLE positions ADD COLUMN usd_amount REAL DEFAULT 0"); } catch (e) {}
+  try { db.run("ALTER TABLE positions ADD COLUMN inscription_id TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE positions ADD COLUMN address TEXT"); } catch (e) {}
 
   db.run(`CREATE TABLE IF NOT EXISTS bot_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,6 +88,34 @@ async function init() {
     max_positions INTEGER NOT NULL DEFAULT 5,
     position_size_usdt REAL NOT NULL DEFAULT 10,
     min_confidence REAL NOT NULL DEFAULT 5
+  )`);
+
+  // User inscriptions table - stores verified wallet inscriptions
+  db.run(`CREATE TABLE IF NOT EXISTS user_inscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    address TEXT NOT NULL,
+    bot_num INTEGER NOT NULL,
+    inscription_id TEXT NOT NULL,
+    tier TEXT NOT NULL,
+    bot_image_url TEXT,
+    selected INTEGER NOT NULL DEFAULT 0,
+    verified_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(address, inscription_id)
+  )`);
+
+  // Inscription preferences table - bot preferences per inscription
+  db.run(`CREATE TABLE IF NOT EXISTS inscription_preferences (
+    inscription_id TEXT PRIMARY KEY,
+    address TEXT NOT NULL,
+    spot_enabled INTEGER NOT NULL DEFAULT 1,
+    futures_enabled INTEGER NOT NULL DEFAULT 1,
+    spot_position_size REAL NOT NULL DEFAULT 10.0,
+    futures_position_size REAL NOT NULL DEFAULT 10.0,
+    spot_max_positions INTEGER NOT NULL DEFAULT 5,
+    futures_max_positions INTEGER NOT NULL DEFAULT 5,
+    spot_min_score INTEGER NOT NULL DEFAULT 6,
+    futures_min_score INTEGER NOT NULL DEFAULT 7,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
 
   save();
@@ -310,11 +342,120 @@ function getBotStats(type) {
   return { type, openPositions: openPositions.length, totalPnl };
 }
 
+// User inscriptions functions
+function insertUserInscription(address, botNum, inscriptionId, tier, botImageUrl) {
+  const stmt = db.prepare(`INSERT OR REPLACE INTO user_inscriptions
+    (address, bot_num, inscription_id, tier, bot_image_url, verified_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))`);
+  stmt.run([address.toLowerCase(), botNum, inscriptionId, tier, botImageUrl || '']);
+  stmt.free();
+  save();
+}
+
+function getUserInscriptions(address) {
+  const stmt = db.prepare("SELECT bot_num, inscription_id, tier, bot_image_url, selected FROM user_inscriptions WHERE address = ? ORDER BY bot_num");
+  stmt.bind([address.toLowerCase()]);
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  return rows;
+}
+
+function setSelectedInscription(address, inscriptionId) {
+  db.run("UPDATE user_inscriptions SET selected = 0 WHERE address = ?", [address.toLowerCase()]);
+  db.run("UPDATE user_inscriptions SET selected = 1 WHERE address = ? AND inscription_id = ?", [address.toLowerCase(), inscriptionId]);
+  save();
+}
+
+function getSelectedInscription(address) {
+  const stmt = db.prepare("SELECT inscription_id, bot_num, tier, bot_image_url FROM user_inscriptions WHERE address = ? AND selected = 1");
+  stmt.bind([address.toLowerCase()]);
+  if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r; }
+  stmt.free();
+  return null;
+}
+
+function deleteUserInscriptions(address) {
+  db.run("DELETE FROM user_inscriptions WHERE address = ?", [address.toLowerCase()]);
+  save();
+}
+
+// Inscription preferences functions
+function getInscriptionPreferences(inscriptionId) {
+  const stmt = db.prepare("SELECT * FROM inscription_preferences WHERE inscription_id = ?");
+  stmt.bind([inscriptionId]);
+  if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r; }
+  stmt.free();
+  return null;
+}
+
+function upsertInscriptionPreferences(inscriptionId, address, prefs) {
+  const stmt = db.prepare(`INSERT OR REPLACE INTO inscription_preferences
+    (inscription_id, address, spot_enabled, futures_enabled, spot_position_size, futures_position_size,
+     spot_max_positions, futures_max_positions, spot_min_score, futures_min_score, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
+  stmt.run([
+    inscriptionId, address.toLowerCase(),
+    prefs.spot_enabled ?? 1, prefs.futures_enabled ?? 1,
+    prefs.spot_position_size ?? 10.0, prefs.futures_position_size ?? 10.0,
+    prefs.spot_max_positions ?? 5, prefs.futures_max_positions ?? 5,
+    prefs.spot_min_score ?? 6, prefs.futures_min_score ?? 7
+  ]);
+  stmt.free();
+  save();
+}
+
+function deleteInscriptionPreferences(inscriptionId) {
+  db.run("DELETE FROM inscription_preferences WHERE inscription_id = ?", [inscriptionId]);
+  save();
+}
+
+// Bot status/positions by inscription
+function getPositionsByInscription(inscriptionId, status = 'open') {
+  let sql = "SELECT * FROM positions WHERE inscription_id = ? AND status = ?";
+  const params = [inscriptionId, status];
+  sql += " ORDER BY opened_at DESC";
+  const stmt = db.prepare(sql);
+  stmt.bind(params);
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  return rows;
+}
+
+// Batch set user inscriptions (called by authRouter after verify)
+function setUserInscriptions(address, inscriptions) {
+  deleteUserInscriptions(address);
+  for (const ins of inscriptions) {
+    insertUserInscription(address, ins.num, ins.inscriptionId, ins.tier, ins.botImageUrl || '');
+  }
+}
+
+// Alias for setSelectedInscription
+function selectInscription(address, inscriptionId) {
+  setSelectedInscription(address, inscriptionId);
+}
+
+// Track verified owner
+function setVerifiedOwner(address, botNum, inscriptionId) {
+  db.run(`INSERT OR REPLACE INTO user_inscriptions
+    (address, bot_num, inscription_id, tier, bot_image_url, selected, verified_at)
+    SELECT ?, ?, ?, tier, bot_image_url, 1, datetime('now')
+    FROM user_inscriptions WHERE inscription_id = ? AND address = ?`, [
+    address.toLowerCase(), botNum, inscriptionId, inscriptionId, address.toLowerCase()
+  ]);
+  save();
+}
+
 async function close() { if (db) db.close(); }
 
 module.exports = {
   init, insertOpportunity, getOpportunities, getOpportunityById,
   getStrategyConfigs, deleteOldOpportunities, deleteOpportunity,
   insertPosition, getPositions, getPositionById, updatePositionPrice, closePosition, cancelPosition,
-  getBotConfigs, getBotConfig, updateBotConfig, getBotStats, close
+  getBotConfigs, getBotConfig, updateBotConfig, getBotStats, close,
+  insertUserInscription, getUserInscriptions, setSelectedInscription, getSelectedInscription,
+  deleteUserInscriptions, setUserInscriptions, selectInscription, setVerifiedOwner,
+  getInscriptionPreferences, upsertInscriptionPreferences, deleteInscriptionPreferences,
+  getPositionsByInscription
 };
