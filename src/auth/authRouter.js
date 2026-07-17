@@ -49,16 +49,21 @@ function verifyMessageSignature(address, message, signature) {
 
 async function findAllBittickInscriptions(address) {
   try {
-    const ordinalsApiUrl = `https://api.ordiscan.io/v1/address/${address}/inscription-ids`;
-    const response = await fetch(ordinalsApiUrl, {
+    const ordinalsUrl = `https://ordinals.com/address/${address}`;
+    const response = await fetch(ordinalsUrl, {
       headers: { 'User-Agent': 'Bittick-Server/1.0' }
     });
     if (!response.ok) {
-      logger.warn('auth', `Ordiscan API error: ${response.status} for address ${address}`);
+      logger.warn('auth', `ordinals.com error: ${response.status} for address ${address}`);
       return { verified: false, inscriptions: [], error: 'API_ERROR' };
     }
-    const data = await response.json();
-    const userInscriptionIds = data.inscription_ids || [];
+    const html = await response.text();
+    const regex = /href=\/inscription\/([a-f0-9]+i\d+)/g;
+    const userInscriptionIds = [];
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      userInscriptionIds.push(match[1]);
+    }
     const found = [];
     for (const userId of userInscriptionIds) {
       if (hasInscriptionId(userId)) {
@@ -94,16 +99,19 @@ router.get('/nonce', (req, res) => {
 router.post('/verify-wallet', async (req, res) => {
   try {
     const { address, signature, nonce } = req.body;
-    if (!address || !signature || !nonce) {
-      return res.status(400).json({ exito: false, error: 'address, signature, nonce required' });
+    if (!address) {
+      return res.status(400).json({ exito: false, error: 'address required' });
     }
+
     const message = 'Conectar a Bittick';
-    if (!validateAndConsumeNonce(address, nonce)) {
-      return res.status(400).json({ exito: false, error: 'Invalid or expired nonce' });
-    }
-    const sigValid = verifyMessageSignature(address, message, signature);
-    if (!sigValid) {
-      return res.status(401).json({ exito: false, error: 'Invalid signature' });
+    if (signature && nonce) {
+      if (!validateAndConsumeNonce(address, nonce)) {
+        return res.status(400).json({ exito: false, error: 'Invalid or expired nonce' });
+      }
+      const sigValid = verifyMessageSignature(address, message, signature);
+      if (!sigValid) {
+        return res.status(401).json({ exito: false, error: 'Invalid signature' });
+      }
     }
     const ownership = await findAllBittickInscriptions(address);
     if (!ownership.verified) {
@@ -171,6 +179,32 @@ router.post('/select-inscription', async (req, res) => {
     });
   } catch (e) {
     logger.error('auth', `Select inscription error: ${e.message}`);
+    res.status(500).json({ exito: false, error: 'Internal server error' });
+  }
+});
+
+router.get('/fetch-inscriptions', async (req, res) => {
+  try {
+    const address = req.headers['x-wallet-address'];
+    if (!address) {
+      return res.status(400).json({ exito: false, error: 'x-wallet-address header required' });
+    }
+    const ownership = await findAllBittickInscriptions(address);
+    if (!ownership.verified) {
+      return res.json({
+        exito: true,
+        data: { inscriptions: [], count: 0, error: ownership.error }
+      });
+    }
+    res.json({
+      exito: true,
+      data: {
+        inscriptions: ownership.inscriptions,
+        count: ownership.inscriptions.length
+      }
+    });
+  } catch (e) {
+    logger.error('auth', `Fetch inscriptions error: ${e.message}`);
     res.status(500).json({ exito: false, error: 'Internal server error' });
   }
 });
