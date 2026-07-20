@@ -1,8 +1,10 @@
-# Estrategia Trading Avizor — Acumulación con Velas Renko
+# Estrategia Combinada con Trading Avizor
 
-> Basada en el análisis del canal [Trading Avizor](https://www.youtube.com/@tradingavizor)
-> 295 videos analizados (2024-07-01 a 2026-07-06)
-> Documento vivo — última actualización: 2026-07-07
+> **Documento dos bloques:**
+> - **Parte I** (secciones 1-11): Metodología Trading Avizor — análisis de 295 videos (2024-07-01 a 2026-07-06)
+> - **Parte II** (secciones 12+): Estrategia propia de Bittick — ejecución automatizada de posiciones
+> 
+> Última actualización: 2026-07-20
 > 
 > Documento complementario: [Zonas de Trading Avizor](zonas-trading-avizor.md)
 
@@ -304,7 +306,9 @@ El chart dibuja:
 
 ---
 
-## 10. Glosario
+## 10. Glosario — Parte I (Trading Avizor)
+
+> El glosario completo (incluyendo términos de la estrategia Bittick) está en la **sección 20** al final del documento.
 
 | Término | Significado |
 |---------|-------------|
@@ -339,5 +343,263 @@ El chart dibuja:
 
 ---
 
-> Documento generado a partir del análisis de 265 videos del canal Trading Avizor.
-> Este documento es una interpretación de la metodología presentada en el canal.
+---
+
+# PARTE II — ESTRATEGIA PROPIA DE BITTICK
+
+> **De aquí en adelante se documenta la estrategia de ejecución automática desarrollada por Bittick.**
+> Esta estrategia usa como base la metodología Trading Avizor (Parte I) pero la complementa con reglas mecánicas de gestión de posiciones, sizing de órdenes y filtros de calidad que el Avizor no define de forma automatizada.
+
+---
+
+## 12. Filosofía de la Estrategia Bittick
+
+Bittick toma del Avizor los conceptos de **zonas**, **imanes** y **scoring** (Parte I), y los convierte en señales ejecutables automáticamente. Donde el Avizor depende de interpretación humana, Bittick define reglas mecánicas:
+
+| Componente | Avizor | Bittick |
+|------------|--------|---------|
+| Zonas e imanes | Manual, en chart | Automático, vía API |
+| Scoring | Interpretativo (0-10) | Mecánico, con filtros |
+| Entry/exit | Decisión del trader | Ejecución automática por bot |
+| Position sizing | "No arriesgar más del 1-2%" | Sizing por nivel de score (ver sección 13) |
+| Gestión de posiciones | Manual | Automática (TP/SL) + manual (botón cerrar) |
+| Balance | No aplica (cuenta real) | Virtual: Presupuesto Inicial + PNL Realizado |
+
+La estrategia propia de Bittick se ejecuta en **bots SPOT y FUTUROS**, cada uno con configuración independiente.
+
+---
+
+## 13. Position Sizing por Score
+
+El monto de cada apuesta se calcula según el **nivel**, que es el mínimo entre score y confidence. Se usa una distribución tipo campana: más apuesta en los niveles medios-altos (8), menos en los extremos (6 y 10).
+
+### Tabla de Sizing (presupuesto base: $100)
+
+| Nivel (min(score,confidence)) | % del presupuesto | Apalancamiento | Monto con $100 |
+|------|------|------|------|
+| 10 | 10% | 3x | $10 |
+| 9 | 20% | 3x | $20 |
+| **8** | **40%** | **3x** | **$40** |
+| 7 | 20% | 2x | $20 |
+| 6 | 10% | 1x | $10 |
+| <6 | No ejecuta | - | - |
+
+### Ejemplo práctico
+
+```
+Señal: score=8, confidence=7
+Nivel = min(8,7) = 7
+Tier: 20%, leverage 2x
+Monto: $100 × 20% = $20
+Posición: $20 apalancada 2x = $40 exposición
+```
+
+### Configuración por bot
+
+Cada bot (SPOT/FUTUROS) tiene su propio `max_positions` (default 5) y `min_confidence` (default 6). Si la confianza de la señal es menor que el mínimo configurado, el bot no ejecuta.
+
+---
+
+## 14. Semáforo de Calidad
+
+Cada oportunidad que se muestra en la pantalla lleva un **indicador de color** (círculo al lado del nombre del activo) que clasifica la calidad de la señal:
+
+| Color | Condición | Significado |
+|-------|-----------|-------------|
+| **Verde** | min(score, confidence) >= 8 | Señal fuerte — alta probabilidad |
+| **Amarillo** | min(score, confidence) >= 7 **O** score == confidence | Señal aceptable —balanceada |
+| **Rojo** | Todo lo demás | Señal débil — un factor arrastra la otra |
+
+### Ejemplos
+
+| Score | Confidence | Nivel | Color | Razón |
+|-------|-----------|-------|-------|-------|
+| 8 | 8 | 8 | **Verde** | Ambos >= 8 |
+| 8 | 7 | 7 | **Amarillo** | min >= 7 |
+| 7 | 7 | 7 | **Amarillo** | Son iguales (y min >= 7) |
+| 6 | 6 | 6 | **Amarillo** | Son iguales |
+| 9 | 10 | 9 | **Verde** | min >= 8 |
+| 8 | 6 | 6 | **Rojo** | min < 7 y no son iguales |
+| 5 | 4 | 4 | **Rojo** | min < 7 y no son iguales |
+
+> **Nota:** Solo se muestran en pantalla oportunidades con score >= 5. Las de 4 o menos son descartadas automáticamente.
+
+---
+
+## 15. Filtros de Ejecución
+
+Antes de ejecutar una posición, el bot aplica estos filtros en orden:
+
+### 15.1 Filtro de nivel mínimo
+Si `min(score, confidence)` < 6 → no ejecuta. La señal es demasiado débil.
+
+### 15.2 Filtro de confianza mínima
+Si `confidence` < `min_confidence` del bot (default 6) → no ejecuta. Cada bot tiene su propio umbral configurable.
+
+### 15.3 Filtro de posiciones máximas
+Si el bot ya tiene `max_positions` posiciones abiertas (default 5) → no ejecuta más.
+
+### 15.4 Filtro de deduplicación
+Si ya existe una posición abierta en el **mismo activo + mismo tipo de estrategia** (ej: BTCUSDT + long) → no abre otra. Evita exposición excesiva en un solo activo.
+
+### 15.5 Filtro de tipo de estrategia por bot
+- **Bot SPOT**: Solo ejecuta `long` (compra)
+- **Bot FUTUROS**: Ejecuta `long` y `short`
+
+---
+
+## 16. Gestión de Balance
+
+El balance que se muestra en la pantalla **no es el balance real de Binance**, es un balance virtual calculado por el servidor:
+
+### Fórmula
+
+```
+Balance = Presupuesto Inicial + PNL Realizado
+Disponible = Balance - USDT usado en posiciones abiertas
+```
+
+### Ejemplo numérico
+
+```
+Presupuesto inicial: $100
+5 posiciones abiertas: -$100 (todo el presupuesto en uso)
+Disponible: $0
+
+--- Las 5 posiciones cierran con +$4.19 de ganancia ---
+
+PNL Realizado: +$4.19
+Balance: $100 + $4.19 = $104.19
+Disponible: $104.19 (sin posiciones abiertas)
+
+--- Se abre 1 nueva posición de $20 ---
+
+Balance: $104.19
+Disponible: $104.19 - $20 = $84.19
+```
+
+### Si hay pérdidas
+
+```
+PNL Realizado: -$5.00
+Balance: $100 - $5.00 = $95.00
+Disponible: $95.00
+```
+
+El balance **suma si ganás y resta si perdés** — refleja el rendimiento acumulado de todas las posiciones cerradas.
+
+---
+
+## 17. Bot SPOT vs FUTUROS
+
+| Característica | Bot SPOT | Bot FUTUROS |
+|----------------|----------|-------------|
+| Tipo de orden | Compra/Venta de BTC real | Contratos de futuro |
+| Estrategias | Solo LONG | LONG y SHORT |
+| Apalancamiento | 1x (sin apalancamiento) | 2x-3x según nivel |
+| Configuración independiente | Sí (`bot_config` type=spot) | Sí (`bot_config` type=futures) |
+| Max posiciones | Configurable (default 5) | Configurable (default 5) |
+| Min confidence | Configurable (default 6) | Configurable (default 6) |
+
+Cada bot tiene su propio presupuesto (`BOT_SPOT_BUDGET` / `BOT_FUTURES_BUDGET`) y se configura independientemente.
+
+---
+
+## 18. Cierre de Posiciones
+
+Las posiciones se pueden cerrar de tres formas:
+
+### 18.1 Take Profit automático
+Cuando el precio alcanza el `target` calculado por el scoring, el bot cierra la posición y registra la ganancia.
+
+### 18.2 Stop Loss automático
+Cuando el precio toca el `stop_loss`, el bot cierra la posición para limitar pérdidas.
+
+### 18.3 Cierre manual
+El usuario puede cerrar cualquier posición desde la app presionando el botón **"CERRAR POSICION"** en la PositionCard. Se muestra un diálogo de confirmación antes de ejecutar.
+
+### Registro del cierre
+Cada cierre guarda en la DB:
+- `status`: `"closed"` o `"cancelled"`
+- `pnl`: Ganancia/pérdida en USDT
+- `pnl_percent`: Porcentaje de retorno
+- `close_reason`: `"take_profit"`, `"stop_loss"`, o `"manual"`
+- `closed_at`: Timestamp del cierre
+
+---
+
+## 19. Endpoints de la API de Trading
+
+| Endpoint | Método | Descripción | Autenticación |
+|----------|--------|-------------|---------------|
+| `/api/trading/opportunities` | GET | Oportunidades de trading (premium: todas, free: filtradas) | `x-wallet-address` |
+| `/api/trading/positions` | GET | Posiciones abiertas del usuario | `x-wallet-address` |
+| `/api/trading/bot/status` | GET | Estado de bots SPOT/FUTUROS + balance | `x-wallet-address` |
+| `/api/trading/strategies` | GET/POST | Configurar estrategia por bot (CRUD) | `x-wallet-address` |
+| `/api/trading/cancel-position` | POST | Cerrar posición manual | `x-wallet-address` |
+
+### Respuesta de /bot/status
+
+```json
+{
+  "exito": true,
+  "data": {
+    "spot": {
+      "enabled": true,
+      "openPositions": 2,
+      "maxPositions": 5,
+      "totalPnl": 4.19,
+      "balance": {
+        "total": 104.19,
+        "available": 64.19
+      }
+    },
+    "futures": {
+      "enabled": false,
+      "openPositions": 0,
+      "maxPositions": 5,
+      "totalPnl": 0,
+      "balance": {
+        "total": 100.00,
+        "available": 100.00
+      }
+    }
+  }
+}
+```
+
+---
+
+## 20. Glosario (Actualizado)
+
+| Término | Significado |
+|---------|-------------|
+| Deuda | Nivel de precio donde se desequilibra el presupuesto de liquidez (Avizor) |
+| Presupuesto | Asignación de liquidez para un periodo (Avizor) |
+| Zona | Rango de precio (start-end) donde hay acumulación de órdenes (Avizor) |
+| Obstáculo | Zona más cercana en la dirección del precio que debe romperse (Avizor) |
+| Imán | Siguiente zona más allá del obstáculo que atrae al precio (Avizor) |
+| Back (parte de atrás) | Lado opuesto de la zona en la dirección de viaje + buffer (Avizor) |
+| Break rápido | Vela grande que rompe la back de golpe (Avizor) |
+| Liquidez de salida | Retail comprando en tops, vendiendo en bottoms (Avizor) |
+| Zona de compra | Área de demanda institucional (verde en chart) (Avizor) |
+| Zona de venta | Área de oferta institucional (rojo en chart) (Avizor) |
+| Delta de compra | Diferencia entre órdenes de compra y venta en un periodo (Avizor) |
+| Renko | Gráfico de velas basado en movimiento de precio, no en tiempo (Avizor) |
+| ATR | Average True Range — medida de volatilidad (Avizor) |
+| Pardillo | Retail que pierde dinero por no entender el mercado (Avizor) |
+| Ballena | Participante institucional con gran capital (Avizor) |
+| Ciclo | Fases del mercado (acumulación → markup → distribución → markdown) (Avizor) |
+| **Position Sizing** | **Cálculo del monto a apostar según el nivel de score (Bittick)** |
+| **Nivel** | **Mínimo entre score y confidence — determina el tier de sizing (Bittick)** |
+| **Semáforo de Calidad** | **Indicador visual (verde/amarillo/rojo) de la calidad de una señal (Bittick)** |
+| **Dedup** | **Filtro que evita abrir segunda posición en mismo activo+estrategia (Bittick)** |
+| **PNL Realizado** | **Suma de ganancias/pérdidas de posiciones cerradas (Bittick)** |
+| **Balance** | **Presupuesto Inicial + PNL Realizado (Bittick)** |
+| **Close Reason** | **Razón del cierre: take_profit, stop_loss o manual (Bittick)** |
+| **min_confidence** | **Confianza mínima requerida para ejecutar (default 6) (Bittick)** |
+
+---
+
+> **Parte I:** Documento generado a partir del análisis de 295 videos del canal Trading Avizor.
+> **Parte II:** Documento generado a partir de la implementación técnica de Bittick.

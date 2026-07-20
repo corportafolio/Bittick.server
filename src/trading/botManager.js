@@ -192,11 +192,18 @@ async function getBotBalance(type, address = null) {
   try {
     const budgetKey = type === 'spot' ? 'BOT_SPOT_BUDGET' : 'BOT_FUTURES_BUDGET';
     const budget = parseFloat(process.env[budgetKey] || '100');
+
+    const stats = store.getBotStats(type);
+    const realizedPnl = stats.totalPnl || 0;
+
     const openPositions = store.getPositions(type, 'open', address);
     const usedInPositions = openPositions.reduce((sum, p) => sum + parseFloat(p.usd_amount || 0), 0);
-    const available = Math.max(0, budget - usedInPositions);
+
+    const total = budget + realizedPnl;
+    const available = Math.max(0, total - usedInPositions);
+
     return {
-      total: parseFloat(budget.toFixed(2)),
+      total: parseFloat(total.toFixed(2)),
       available: parseFloat(available.toFixed(2))
     };
   } catch (error) {
