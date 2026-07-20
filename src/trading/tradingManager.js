@@ -24,6 +24,8 @@ async function scanMarket() {
     const currentPrice = ticker.price;
 
     const configs = store.getStrategyConfigs();
+    const signals = [];
+
     for (const config of configs) {
       if (!config.enabled) continue;
       const strategy = strategies[config.name];
@@ -37,16 +39,31 @@ async function scanMarket() {
           const op = { ...signal, confidence: analysis.confidence, explanation: analysis.explanation, factors: analysis.factors, risks: analysis.risks, horizonte: analysis.horizonte };
           store.insertOpportunity(op);
           results.push(op);
-
-          if (analysis.confidence >= 5) {
-            const executions = await botManager.evaluateAndExecute(op);
-            if (executions.length > 0) {
-              logger.info('trading', `Bot executed ${executions.length} order(s) for this signal.`);
-            }
-          }
+          signals.push(op);
         }
       } catch (strategyError) {
         logger.error('trading-strategy', `Strategy ${config.name} error: ${strategyError.message}`);
+      }
+    }
+
+    const activeInscriptions = store.getActiveInscriptions();
+    if (activeInscriptions.length > 0) {
+      for (const op of signals) {
+        if (op.confidence < 5) continue;
+        for (const insc of activeInscriptions) {
+          try {
+            const executions = await botManager.evaluateAndExecute(op, {
+              inscriptionId: insc.inscription_id,
+              address: insc.address,
+              botNum: insc.bot_num
+            });
+            if (executions.length > 0) {
+              logger.info('trading', `Bot #${insc.bot_num} executed ${executions.length} order(s) for ${insc.address}`);
+            }
+          } catch (botError) {
+            logger.error('trading', `Bot #${insc.bot_num} error: ${botError.message}`);
+          }
+        }
       }
     }
   } catch (error) {

@@ -5,13 +5,25 @@ const logger = require('../logger/logger');
 
 const router = express.Router();
 
+function isVerified(address) {
+  if (!address) return false;
+  const owner = store.getSelectedInscription(address);
+  return !!owner;
+}
+
 router.get('/opportunities', (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const offset = parseInt(req.query.offset) || 0;
     const since = req.query.since || null;
-    const opportunities = store.getOpportunities(limit, offset, since);
-    res.json({ exito: true, data: opportunities });
+    const address = req.headers['x-wallet-address'];
+    if (isVerified(address)) {
+      const opportunities = store.getOpportunities(limit, offset, since);
+      res.json({ exito: true, data: opportunities, tier: 'premium' });
+    } else {
+      const opportunities = store.getOpportunitiesFreeTier(limit, offset);
+      res.status(300).json({ exito: true, data: opportunities, tier: 'free' });
+    }
   } catch (error) {
     logger.error('trading-api', `GET opportunities error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
@@ -66,10 +78,14 @@ router.delete('/opportunities/:id', (req, res) => {
 
 router.get('/positions', (req, res) => {
   try {
+    const address = req.headers['x-wallet-address'];
+    if (!isVerified(address)) {
+      return res.status(300).json({ exito: true, data: [], tier: 'free' });
+    }
     const botType = req.query.type || null;
     const status = req.query.status || 'open';
-    const positions = store.getPositions(botType, status);
-    res.json({ exito: true, data: positions });
+    const positions = store.getPositions(botType, status, address);
+    res.json({ exito: true, data: positions, tier: 'premium' });
   } catch (error) {
     logger.error('trading-api', `GET positions error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
@@ -100,15 +116,23 @@ router.post('/positions/:id/cancel', async (req, res) => {
 
 router.get('/bot/status', async (req, res) => {
   try {
-    const spotStatus = botManager.getBotStatus('spot');
-    const futuresStatus = botManager.getBotStatus('futures');
+    const address = req.headers['x-wallet-address'];
+    if (!isVerified(address)) {
+      return res.status(300).json({
+        exito: true,
+        data: { spot: { type: 'spot', enabled: false, maxPositions: 0, positionSizeUsdt: 0, minConfidence: 0, openPositions: 0, totalPnl: 0, balance: null }, futures: { type: 'futures', enabled: false, maxPositions: 0, positionSizeUsdt: 0, minConfidence: 0, openPositions: 0, totalPnl: 0, balance: null } },
+        tier: 'free'
+      });
+    }
+    const spotStatus = botManager.getBotStatus('spot', address);
+    const futuresStatus = botManager.getBotStatus('futures', address);
     const [spotBalance, futuresBalance] = await Promise.all([
-      botManager.getBotBalance('spot'),
-      botManager.getBotBalance('futures')
+      botManager.getBotBalance('spot', address),
+      botManager.getBotBalance('futures', address)
     ]);
     spotStatus.balance = spotBalance;
     futuresStatus.balance = futuresBalance;
-    res.json({ exito: true, data: { spot: spotStatus, futures: futuresStatus } });
+    res.json({ exito: true, data: { spot: spotStatus, futures: futuresStatus }, tier: 'premium' });
   } catch (error) {
     logger.error('trading-api', `Bot status error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
@@ -189,6 +213,64 @@ router.get('/bot/status/:inscriptionId', async (req, res) => {
     res.json({ exito: true, data: { inscriptionId, open: openPositions, closed: closedPositions } });
   } catch (error) {
     logger.error('trading-api', `Bot status by inscription error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+// Bot strategies CRUD
+router.get('/strategies/:inscriptionId', (req, res) => {
+  try {
+    const { inscriptionId } = req.params;
+    const strategies = store.getAllBotStrategies(inscriptionId);
+    res.json({ exito: true, data: strategies });
+  } catch (error) {
+    logger.error('trading-api', `GET strategies error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.get('/strategies/:inscriptionId/:mode', (req, res) => {
+  try {
+    const { inscriptionId, mode } = req.params;
+    const strategy = store.getBotStrategy(inscriptionId, mode);
+    if (!strategy) {
+      return res.json({ exito: true, data: null, message: 'No strategy configured for this mode' });
+    }
+    res.json({ exito: true, data: strategy });
+  } catch (error) {
+    logger.error('trading-api', `GET strategy error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.post('/strategies', (req, res) => {
+  try {
+    const { inscription_id, mode, strategy_name, enabled, parameters,
+            position_size_usdt, max_positions, min_confidence, leverage,
+            stop_loss_percent, take_profit_percent } = req.body;
+    if (!inscription_id || !mode || !strategy_name) {
+      return res.status(400).json({ exito: false, error: 'inscription_id, mode, and strategy_name are required' });
+    }
+    store.saveBotStrategy({
+      inscription_id, mode, strategy_name, enabled, parameters,
+      position_size_usdt, max_positions, min_confidence, leverage,
+      stop_loss_percent, take_profit_percent
+    });
+    const saved = store.getBotStrategy(inscription_id, mode);
+    res.json({ exito: true, data: saved });
+  } catch (error) {
+    logger.error('trading-api', `POST strategy error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.delete('/strategies/:inscriptionId/:mode', (req, res) => {
+  try {
+    const { inscriptionId, mode } = req.params;
+    store.deleteBotStrategy(inscriptionId, mode);
+    res.json({ exito: true, message: `Strategy ${mode} deleted for ${inscriptionId}` });
+  } catch (error) {
+    logger.error('trading-api', `DELETE strategy error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
   }
 });

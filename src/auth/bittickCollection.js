@@ -111,10 +111,10 @@ const BOTS = [
 
 BOTS.forEach(b => { b.tier = getTier(b.num); });
 
-const INSCRIPTION_ID_SET = new Set(BOTS.map(b => b.inscriptionId));
+const INSCRIPTION_ID_SET = new Set(BOTS.map(b => b.inscriptionId.toLowerCase()));
 
 function getBotByInscriptionId(inscriptionId) {
-  return BOTS.find(b => b.inscriptionId === inscriptionId) || null;
+  return BOTS.find(b => b.inscriptionId.toLowerCase() === inscriptionId.toLowerCase()) || null;
 }
 
 function getBotByNum(num) {
@@ -122,7 +122,7 @@ function getBotByNum(num) {
 }
 
 function hasInscriptionId(inscriptionId) {
-  return INSCRIPTION_ID_SET.has(inscriptionId);
+  return INSCRIPTION_ID_SET.has(inscriptionId.toLowerCase());
 }
 
 function getAllInscriptionIds() {

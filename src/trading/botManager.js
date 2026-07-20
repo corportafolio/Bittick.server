@@ -4,17 +4,17 @@ const executor = require('./executionEngine');
 const logger = require('../logger/logger');
 
 const TIERS = [
-  { nivel: 10, percent: 5, leverage: 3 },
-  { nivel: 9, percent: 10, leverage: 3 },
-  { nivel: 8, percent: 45, leverage: 3 },
+  { nivel: 10, percent: 10, leverage: 3 },
+  { nivel: 9, percent: 20, leverage: 3 },
+  { nivel: 8, percent: 40, leverage: 3 },
   { nivel: 7, percent: 20, leverage: 2 },
-  { nivel: 6, percent: 20, leverage: 1 },
+  { nivel: 6, percent: 10, leverage: 1 },
 ];
 
 const BOT_TYPES = ['spot', 'futures'];
 
 function getBotConfig(type) {
-  return store.getBotConfig(type) || { type, enabled: 0, max_positions: 5, position_size_usdt: 10, min_confidence: 5 };
+  return store.getBotConfig(type) || { type, enabled: 0, max_positions: 5, position_size_usdt: 10, min_confidence: 6 };
 }
 
 function getTierConfig(nivel) {
@@ -24,7 +24,7 @@ function getTierConfig(nivel) {
   return null;
 }
 
-async function evaluateAndExecute(signal) {
+async function evaluateAndExecute(signal, context = {}) {
   const results = [];
 
   const score = Math.round(signal.score || 0);
@@ -42,9 +42,20 @@ async function evaluateAndExecute(signal) {
 
     if (botType === 'spot' && signal.strategyType !== 'long') continue;
 
-    const openPositions = store.getPositions(botType, 'open');
+    if (confidence < config.min_confidence) {
+      logger.info('bot-manager', `${botType} bot: confidence ${confidence} < min ${config.min_confidence}, skipping`);
+      continue;
+    }
+
+    const openPositions = store.getPositions(botType, 'open', context.address || null);
     if (openPositions.length >= config.max_positions) {
       logger.info('bot-manager', `${botType} bot: max positions (${config.max_positions}) reached, skipping`);
+      continue;
+    }
+
+    const alreadyOpen = openPositions.some(p => p.asset === signal.asset && p.strategy_type === signal.strategyType);
+    if (alreadyOpen) {
+      logger.info('bot-manager', `${botType} bot: already open position on ${signal.asset} ${signal.strategyType}, skipping`);
       continue;
     }
 
@@ -59,8 +70,10 @@ async function evaluateAndExecute(signal) {
       position.risks = signal.risks;
       position.signals = signal.signals;
       position.usdAmount = usdAmount;
+      position.inscriptionId = context.inscriptionId || null;
+      position.address = context.address || null;
       const id = store.insertPosition(position);
-      logger.info('bot-manager', `${botType} bot opened position #${id}: $${usdAmount} (${tier.percent}%, nivel=${nivel}) ${signal.strategyType.toUpperCase()} ${signal.asset} at $${signal.currentPrice}`);
+      logger.info('bot-manager', `${botType} bot opened position #${id}: $${usdAmount} (${tier.percent}%, nivel=${nivel}) ${signal.strategyType.toUpperCase()} ${signal.asset} at $${signal.currentPrice} | bot=${context.botNum || '?'} addr=${context.address || 'global'}`);
       results.push({ ...position, id });
     } catch (error) {
       logger.error('bot-manager', `${botType} bot execution error: ${error.message}`);
@@ -90,7 +103,7 @@ async function cancelPositionById(id) {
   const pnlPercent = ((pnlAmount / (entry * position.quantity)) * 100);
 
   const pnl = { pnl: parseFloat(pnlAmount.toFixed(2)), pnlPercent: parseFloat(pnlPercent.toFixed(2)) };
-  store.closePosition(id, current, pnl);
+  store.closePosition(id, current, pnl, 'manual');
 
   logger.info('bot-manager', `Position #${id} cancelled. PnL: $${pnl.pnl} (${pnl.pnlPercent}%)`);
 
@@ -149,7 +162,7 @@ async function monitorPositions() {
           } else if (pos.order_id) {
             await executor.cancelPosition(botType, pos.asset, pos.order_id);
           }
-          store.closePosition(pos.id, currentPrice, pnl);
+          store.closePosition(pos.id, currentPrice, pnl, closeReason);
           logger.info('bot-manager', `Position #${pos.id} closed via ${closeReason}. PnL: $${pnl.pnl} (${pnl.pnlPercent}%)`);
         }
       }
@@ -159,9 +172,9 @@ async function monitorPositions() {
   }
 }
 
-function getBotStatus(type) {
+function getBotStatus(type, address = null) {
   const config = getBotConfig(type);
-  const positions = store.getPositions(type, 'open');
+  const positions = store.getPositions(type, 'open', address);
   const stats = store.getBotStats(type);
   return {
     type,
@@ -175,11 +188,11 @@ function getBotStatus(type) {
   };
 }
 
-async function getBotBalance(type) {
+async function getBotBalance(type, address = null) {
   try {
     const budgetKey = type === 'spot' ? 'BOT_SPOT_BUDGET' : 'BOT_FUTURES_BUDGET';
     const budget = parseFloat(process.env[budgetKey] || '100');
-    const openPositions = store.getPositions(type, 'open');
+    const openPositions = store.getPositions(type, 'open', address);
     const usedInPositions = openPositions.reduce((sum, p) => sum + parseFloat(p.usd_amount || 0), 0);
     const available = Math.max(0, budget - usedInPositions);
     return {

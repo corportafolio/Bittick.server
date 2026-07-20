@@ -80,6 +80,7 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
   try { db.run("ALTER TABLE positions ADD COLUMN usd_amount REAL DEFAULT 0"); } catch (e) {}
   try { db.run("ALTER TABLE positions ADD COLUMN inscription_id TEXT"); } catch (e) {}
   try { db.run("ALTER TABLE positions ADD COLUMN address TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE positions ADD COLUMN close_reason TEXT DEFAULT ''"); } catch (e) {}
 
   db.run(`CREATE TABLE IF NOT EXISTS bot_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -116,6 +117,24 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
     spot_min_score INTEGER NOT NULL DEFAULT 6,
     futures_min_score INTEGER NOT NULL DEFAULT 7,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+
+  // Bot strategies table - per-bot per-mode strategy configuration
+  db.run(`CREATE TABLE IF NOT EXISTS bot_strategies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inscription_id TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    strategy_name TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    parameters TEXT DEFAULT '{}',
+    position_size_usdt REAL NOT NULL DEFAULT 10.0,
+    max_positions INTEGER NOT NULL DEFAULT 5,
+    min_confidence INTEGER NOT NULL DEFAULT 5,
+    leverage INTEGER DEFAULT 1,
+    stop_loss_percent REAL DEFAULT 2.0,
+    take_profit_percent REAL DEFAULT 4.0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(inscription_id, mode)
   )`);
 
   save();
@@ -208,6 +227,26 @@ function getOpportunities(limit = 50, offset = 0, since = null) {
   return rows;
 }
 
+function getOpportunitiesFreeTier(limit = 50, offset = 0) {
+  const sinceDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').replace('Z', '');
+  let sql = "SELECT * FROM opportunities WHERE created_at > ? AND score >= 5 AND score <= 6 AND confidence >= 5 AND confidence <= 6";
+  sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
+  const stmt = db.prepare(sql);
+  stmt.bind([sinceDate, limit, offset]);
+  const rows = [];
+  while (stmt.step()) {
+    const row = stmt.getAsObject();
+    if (row.created_at) {
+      row.created_at = row.created_at.replace(' ', 'T') + 'Z';
+    }
+    if (row.score !== undefined) row.score = Math.round(Math.min(10, Math.max(0, row.score)));
+    if (row.confidence !== undefined) row.confidence = Math.round(Math.min(10, Math.max(0, row.confidence)));
+    rows.push(row);
+  }
+  stmt.free();
+  return rows;
+}
+
 function getOpportunityById(id) {
   const stmt = db.prepare("SELECT * FROM opportunities WHERE id = ?");
   stmt.bind([id]);
@@ -242,31 +281,42 @@ function deleteOpportunity(id) {
 
 function insertPosition(pos) {
   const stmt = db.prepare(`INSERT INTO positions
-    (bot_type, strategy_type, asset, entry_price, current_price, quantity, order_id, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, usd_amount, status, pnl, pnl_percent)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, 0)`);
+    (bot_type, strategy_type, asset, entry_price, current_price, quantity, order_id, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, usd_amount, status, pnl, pnl_percent, inscription_id, address)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, 0, ?, ?)`);
   stmt.run([pos.botType, pos.strategyType, pos.asset, pos.entryPrice, pos.entryPrice,
     pos.quantity, pos.orderId || null, pos.target || null, pos.stopLoss || null,
     pos.score || 0, pos.confidence || 0, pos.explanation || '',
     JSON.stringify(pos.factors || []), JSON.stringify(pos.risks || []),
-    JSON.stringify(pos.signals || {}), pos.horizonte || 'horas', pos.usdAmount || 0]);
+    JSON.stringify(pos.signals || {}), pos.horizonte || 'horas', pos.usdAmount || 0,
+    pos.inscriptionId || null, pos.address || null]);
   stmt.free();
   const id = db.exec("SELECT last_insert_rowid() as id")[0].values[0][0];
   save();
   return id;
 }
 
-function getPositions(botType = null, status = 'open') {
+function normalizePositionTimestamps(row) {
+  if (row.opened_at) row.opened_at = row.opened_at.replace(' ', 'T') + 'Z';
+  if (row.closed_at) row.closed_at = row.closed_at.replace(' ', 'T') + 'Z';
+  return row;
+}
+
+function getPositions(botType = null, status = 'open', address = null) {
   let sql = "SELECT * FROM positions WHERE status = ?";
   const params = [status];
   if (botType) {
     sql += " AND bot_type = ?";
     params.push(botType);
   }
+  if (address) {
+    sql += " AND address = ?";
+    params.push(address.toLowerCase());
+  }
   sql += " ORDER BY opened_at DESC";
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
+  while (stmt.step()) rows.push(normalizePositionTimestamps(stmt.getAsObject()));
   stmt.free();
   return rows;
 }
@@ -274,7 +324,7 @@ function getPositions(botType = null, status = 'open') {
 function getPositionById(id) {
   const stmt = db.prepare("SELECT * FROM positions WHERE id = ?");
   stmt.bind([id]);
-  if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r; }
+  if (stmt.step()) { const r = normalizePositionTimestamps(stmt.getAsObject()); stmt.free(); return r; }
   stmt.free();
   return null;
 }
@@ -289,10 +339,10 @@ function updatePositionPrice(id, currentPrice, pnl) {
   save();
 }
 
-function closePosition(id, currentPrice, pnl) {
+function closePosition(id, currentPrice, pnl, reason = '') {
   const closedAt = new Date().toISOString().replace('T', ' ').substring(0, 19);
-  db.run("UPDATE positions SET status = 'closed', current_price = ?, pnl = ?, pnl_percent = ?, closed_at = ? WHERE id = ?",
-    [currentPrice, pnl.pnl, pnl.pnlPercent, closedAt, id]);
+  db.run("UPDATE positions SET status = 'closed', current_price = ?, pnl = ?, pnl_percent = ?, closed_at = ?, close_reason = ? WHERE id = ?",
+    [currentPrice, pnl.pnl, pnl.pnlPercent, closedAt, reason, id]);
   save();
 }
 
@@ -410,6 +460,52 @@ function deleteInscriptionPreferences(inscriptionId) {
   save();
 }
 
+// Bot strategies CRUD
+function getBotStrategy(inscriptionId, mode) {
+  const stmt = db.prepare("SELECT * FROM bot_strategies WHERE inscription_id = ? AND mode = ?");
+  stmt.bind([inscriptionId, mode]);
+  const row = stmt.step() ? stmt.getAsObject() : null;
+  stmt.free();
+  return row;
+}
+
+function getAllBotStrategies(inscriptionId) {
+  const stmt = db.prepare("SELECT * FROM bot_strategies WHERE inscription_id = ?");
+  stmt.bind([inscriptionId]);
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  return rows;
+}
+
+function saveBotStrategy(strategy) {
+  const stmt = db.prepare(`INSERT OR REPLACE INTO bot_strategies
+    (inscription_id, mode, strategy_name, enabled, parameters, position_size_usdt, max_positions, min_confidence, leverage, stop_loss_percent, take_profit_percent, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
+  stmt.run([
+    strategy.inscription_id, strategy.mode, strategy.strategy_name,
+    strategy.enabled ?? 1, JSON.stringify(strategy.parameters || {}),
+    strategy.position_size_usdt ?? 10, strategy.max_positions ?? 5,
+    strategy.min_confidence ?? 5, strategy.leverage ?? 1,
+    strategy.stop_loss_percent ?? 2.0, strategy.take_profit_percent ?? 4.0
+  ]);
+  stmt.free();
+  save();
+}
+
+function deleteBotStrategy(inscriptionId, mode) {
+  db.run("DELETE FROM bot_strategies WHERE inscription_id = ? AND mode = ?", [inscriptionId, mode]);
+  save();
+}
+
+function getActiveInscriptions() {
+  const stmt = db.prepare("SELECT inscription_id, bot_num, address FROM user_inscriptions WHERE selected = 1");
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+  return rows;
+}
+
 // Bot status/positions by inscription
 function getPositionsByInscription(inscriptionId, status = 'open') {
   let sql = "SELECT * FROM positions WHERE inscription_id = ? AND status = ?";
@@ -418,7 +514,7 @@ function getPositionsByInscription(inscriptionId, status = 'open') {
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
+  while (stmt.step()) rows.push(normalizePositionTimestamps(stmt.getAsObject()));
   stmt.free();
   return rows;
 }
@@ -450,12 +546,13 @@ function setVerifiedOwner(address, botNum, inscriptionId) {
 async function close() { if (db) db.close(); }
 
 module.exports = {
-  init, insertOpportunity, getOpportunities, getOpportunityById,
+  init, insertOpportunity, getOpportunities, getOpportunitiesFreeTier, getOpportunityById,
   getStrategyConfigs, deleteOldOpportunities, deleteOpportunity,
   insertPosition, getPositions, getPositionById, updatePositionPrice, closePosition, cancelPosition,
   getBotConfigs, getBotConfig, updateBotConfig, getBotStats, close,
   insertUserInscription, getUserInscriptions, setSelectedInscription, getSelectedInscription,
   deleteUserInscriptions, setUserInscriptions, selectInscription, setVerifiedOwner,
   getInscriptionPreferences, upsertInscriptionPreferences, deleteInscriptionPreferences,
-  getPositionsByInscription
+  getPositionsByInscription,
+  getBotStrategy, getAllBotStrategies, saveBotStrategy, deleteBotStrategy, getActiveInscriptions
 };
