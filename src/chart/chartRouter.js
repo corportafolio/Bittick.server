@@ -38,7 +38,7 @@ router.get('/zones', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 200, 500);
     const type = req.query.type === 'futures' ? 'futures' : 'spot';
 
-    const klines = await binance.getKlines('BTCUSDT', interval, limit, type);
+    const klines = await binance.getKlines('BTCUSDT', '1h', 500, type);
     const ticker = await binance.getTickerPrice('BTCUSDT');
     const result = renkoStrategy.getZones(klines, ticker.price);
     res.json({ exito: true, data: result });
