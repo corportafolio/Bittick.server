@@ -217,60 +217,127 @@ router.get('/bot/status/:inscriptionId', async (req, res) => {
   }
 });
 
-// Bot strategies CRUD
+// Bot strategies per-level CRUD
 router.get('/strategies/:inscriptionId', (req, res) => {
   try {
     const { inscriptionId } = req.params;
-    const strategies = store.getAllBotStrategies(inscriptionId);
-    res.json({ exito: true, data: strategies });
+    const all = store.getAllBotStrategies ? store.getAllBotStrategies(inscriptionId) : [];
+    res.json({ exito: true, data: all });
   } catch (error) {
     logger.error('trading-api', `GET strategies error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
   }
 });
 
-router.get('/strategies/:inscriptionId/:mode', (req, res) => {
+router.get('/strategies/levels/:inscriptionId/:mode', (req, res) => {
   try {
     const { inscriptionId, mode } = req.params;
-    const strategy = store.getBotStrategy(inscriptionId, mode);
-    if (!strategy) {
-      return res.json({ exito: true, data: null, message: 'No strategy configured for this mode' });
+    let levels = store.getBotStrategiesByLevel(inscriptionId, mode);
+    if (!levels || levels.length === 0) {
+      levels = [
+        { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 3 },
+        { level: 9, enabled: 1, position_size_usdt: 20, min_score: 9, min_confidence: 9, leverage: 3 },
+        { level: 8, enabled: 1, position_size_usdt: 40, min_score: 8, min_confidence: 8, leverage: 3 },
+        { level: 7, enabled: 1, position_size_usdt: 20, min_score: 7, min_confidence: 7, leverage: 2 },
+        { level: 6, enabled: 1, position_size_usdt: 10, min_score: 6, min_confidence: 6, leverage: 1 }
+      ];
     }
-    res.json({ exito: true, data: strategy });
+    res.json({ exito: true, data: levels });
   } catch (error) {
-    logger.error('trading-api', `GET strategy error: ${error.message}`);
+    logger.error('trading-api', `GET strategies/levels error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
   }
 });
 
-router.post('/strategies', (req, res) => {
+router.post('/strategies/levels', (req, res) => {
   try {
-    const { inscription_id, mode, strategy_name, enabled, parameters,
-            position_size_usdt, max_positions, min_confidence, leverage,
-            stop_loss_percent, take_profit_percent } = req.body;
-    if (!inscription_id || !mode || !strategy_name) {
-      return res.status(400).json({ exito: false, error: 'inscription_id, mode, and strategy_name are required' });
+    const { inscription_id, mode, levels } = req.body;
+    if (!inscription_id || !mode || !levels || !Array.isArray(levels)) {
+      return res.status(400).json({ exito: false, error: 'inscription_id, mode, and levels array are required' });
     }
-    store.saveBotStrategy({
-      inscription_id, mode, strategy_name, enabled, parameters,
-      position_size_usdt, max_positions, min_confidence, leverage,
-      stop_loss_percent, take_profit_percent
-    });
-    const saved = store.getBotStrategy(inscription_id, mode);
+    store.saveBotStrategiesByLevel(inscription_id, mode, levels);
+    const saved = store.getBotStrategiesByLevel(inscription_id, mode);
     res.json({ exito: true, data: saved });
   } catch (error) {
-    logger.error('trading-api', `POST strategy error: ${error.message}`);
+    logger.error('trading-api', `POST strategies/levels error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
   }
 });
 
-router.delete('/strategies/:inscriptionId/:mode', (req, res) => {
+router.delete('/strategies/levels/:inscriptionId/:mode', (req, res) => {
   try {
     const { inscriptionId, mode } = req.params;
-    store.deleteBotStrategy(inscriptionId, mode);
-    res.json({ exito: true, message: `Strategy ${mode} deleted for ${inscriptionId}` });
+    store.deleteBotStrategiesByLevel(inscriptionId, mode);
+    res.json({ exito: true, message: `Strategies ${mode} levels deleted for ${inscriptionId}` });
   } catch (error) {
-    logger.error('trading-api', `DELETE strategy error: ${error.message}`);
+    logger.error('trading-api', `DELETE strategies/levels error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+// Bot API Key endpoints (per-bot per-mode Binance credentials)
+router.get('/bot-apikey/:inscriptionId/:mode', (req, res) => {
+  try {
+    const { inscriptionId, mode } = req.params;
+    const key = store.getBotApiKey(inscriptionId, mode);
+    if (!key) {
+      return res.json({ exito: true, data: null });
+    }
+    const maskedKey = key.api_key.length > 8
+      ? key.api_key.substring(0, 4) + '••••••••' + key.api_key.substring(key.api_key.length - 4)
+      : '••••••••';
+    const maskedSecret = '•••••••••••••••••••';
+    res.json({ exito: true, data: { api_key: maskedKey, api_secret: maskedSecret, has_key: true } });
+  } catch (error) {
+    logger.error('trading-api', `GET bot-apikey error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.get('/bot-apikey/:inscriptionId/:mode/raw', (req, res) => {
+  try {
+    const address = req.headers['x-wallet-address'];
+    if (!isVerified(address)) {
+      return res.status(403).json({ exito: false, error: 'Unauthorized' });
+    }
+    const { inscriptionId, mode } = req.params;
+    const key = store.getBotApiKey(inscriptionId, mode);
+    res.json({ exito: true, data: key });
+  } catch (error) {
+    logger.error('trading-api', `GET bot-apikey/raw error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.post('/bot-apikey', (req, res) => {
+  try {
+    const address = req.headers['x-wallet-address'];
+    if (!isVerified(address)) {
+      return res.status(403).json({ exito: false, error: 'Unauthorized' });
+    }
+    const { inscription_id, mode, api_key, api_secret } = req.body;
+    if (!inscription_id || !mode || !api_key || !api_secret) {
+      return res.status(400).json({ exito: false, error: 'inscription_id, mode, api_key, and api_secret are required' });
+    }
+    store.saveBotApiKey(inscription_id, mode, address, api_key, api_secret);
+    res.json({ exito: true, message: 'API key saved' });
+  } catch (error) {
+    logger.error('trading-api', `POST bot-apikey error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.delete('/bot-apikey/:inscriptionId/:mode', (req, res) => {
+  try {
+    const address = req.headers['x-wallet-address'];
+    if (!isVerified(address)) {
+      return res.status(403).json({ exito: false, error: 'Unauthorized' });
+    }
+    const { inscriptionId, mode } = req.params;
+    store.deleteBotApiKey(inscriptionId, mode);
+    res.json({ exito: true, message: 'API key deleted' });
+  } catch (error) {
+    logger.error('trading-api', `DELETE bot-apikey error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
   }
 });

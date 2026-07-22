@@ -33,7 +33,8 @@ function start() {
   cleanupJob = cron.schedule('0 3 * * *', () => {
     const store = require('./tradingStore');
     store.deleteOldOpportunities(10);
-    logger.info('trading-scheduler', 'Old opportunities cleaned up.');
+    const cleaned = store.cleanupOldPositions(30, 50);
+    logger.info('trading-scheduler', `Cleanup: old opportunities deleted, ${cleaned || 0} old positions archived.`);
   });
 
   logger.info('trading-scheduler', 'Trading scheduler started (scan every 1 min, monitor every 1 min, cleanup daily at 3AM).');

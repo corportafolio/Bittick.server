@@ -82,6 +82,34 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
   try { db.run("ALTER TABLE positions ADD COLUMN address TEXT"); } catch (e) {}
   try { db.run("ALTER TABLE positions ADD COLUMN close_reason TEXT DEFAULT ''"); } catch (e) {}
 
+  // PnL history table - preserves realized PnL after position cleanup
+  db.run(`CREATE TABLE IF NOT EXISTS pnl_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bot_type TEXT NOT NULL,
+    inscription_id TEXT,
+    address TEXT,
+    pnl REAL NOT NULL,
+    pnl_percent REAL NOT NULL,
+    strategy_type TEXT,
+    entry_price REAL,
+    exit_price REAL,
+    usd_amount REAL,
+    close_reason TEXT,
+    closed_at TEXT NOT NULL
+  )`);
+
+  // Bot API keys table - per-bot per-mode Binance API credentials
+  db.run(`CREATE TABLE IF NOT EXISTS bot_api_keys (
+    inscription_id TEXT NOT NULL,
+    mode TEXT NOT NULL,
+    address TEXT NOT NULL,
+    api_key TEXT NOT NULL,
+    api_secret TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (inscription_id, mode)
+  )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS bot_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     type TEXT NOT NULL UNIQUE,
@@ -124,18 +152,27 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     inscription_id TEXT NOT NULL,
     mode TEXT NOT NULL,
-    strategy_name TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    strategy_name TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1,
-    parameters TEXT DEFAULT '{}',
     position_size_usdt REAL NOT NULL DEFAULT 10.0,
-    max_positions INTEGER NOT NULL DEFAULT 5,
-    min_confidence INTEGER NOT NULL DEFAULT 5,
+    min_score INTEGER NOT NULL DEFAULT 6,
+    min_confidence INTEGER NOT NULL DEFAULT 6,
     leverage INTEGER DEFAULT 1,
-    stop_loss_percent REAL DEFAULT 2.0,
-    take_profit_percent REAL DEFAULT 4.0,
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(inscription_id, mode)
+    UNIQUE(inscription_id, mode, level)
   )`);
+
+  // Migration: add min_score column if missing
+  try {
+    const cols = db.exec("PRAGMA table_info(bot_strategies)");
+    const hasMinScore = cols[0]?.values?.some(r => r[1] === 'min_score');
+    if (!hasMinScore) {
+      db.run("ALTER TABLE bot_strategies ADD COLUMN min_score INTEGER NOT NULL DEFAULT 6");
+      db.run("UPDATE bot_strategies SET min_score = level WHERE min_score = 6");
+      save();
+    }
+  } catch (_) {}
 
   save();
 
@@ -380,11 +417,52 @@ function updateBotConfig(type, updates) {
   save();
 }
 
+function cleanupOldPositions(daysOld = 30, maxClosed = 50) {
+  const countRow = (() => {
+    const stmt = db.prepare("SELECT COUNT(*) as c FROM positions WHERE status IN ('closed','cancelled')");
+    const r = stmt.step() ? stmt.getAsObject() : { c: 0 };
+    stmt.free();
+    return r.c;
+  })();
+
+  if (countRow <= maxClosed) return 0;
+
+  const toDelete = countRow - maxClosed;
+  const stmt = db.prepare(
+    "SELECT id, bot_type, inscription_id, address, pnl, pnl_percent, strategy_type, entry_price, current_price, usd_amount, close_reason, closed_at FROM positions WHERE status IN ('closed','cancelled') ORDER BY closed_at ASC LIMIT ?"
+  );
+  stmt.bind([toDelete]);
+  const rows = [];
+  while (stmt.step()) rows.push(stmt.getAsObject());
+  stmt.free();
+
+  if (rows.length === 0) return 0;
+
+  for (const row of rows) {
+    db.run(`INSERT INTO pnl_history (bot_type, inscription_id, address, pnl, pnl_percent, strategy_type, entry_price, exit_price, usd_amount, close_reason, closed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [row.bot_type, row.inscription_id, row.address, row.pnl, row.pnl_percent,
+       row.strategy_type, row.entry_price, row.current_price, row.usd_amount,
+       row.close_reason || '', row.closed_at || new Date().toISOString().replace('T', ' ').substring(0, 19)]);
+  }
+
+  const ids = rows.map(r => r.id);
+  const placeholders = ids.map(() => '?').join(',');
+  db.run(`DELETE FROM positions WHERE id IN (${placeholders})`, ids);
+  save();
+  logger.info('trading-store', `Cleaned up ${rows.length} old closed positions, preserved PnL in history`);
+  return rows.length;
+}
+
 function getBotStats(type) {
   const openPositions = getPositions(type, 'open');
   const totalPnl = (() => {
-    const stmt = db.prepare("SELECT COALESCE(SUM(pnl), 0) as total FROM positions WHERE bot_type = ? AND status IN ('closed','cancelled')");
-    stmt.bind([type]);
+    const stmt = db.prepare(`SELECT COALESCE(SUM(pnl), 0) as total FROM (
+      SELECT pnl FROM positions WHERE bot_type = ? AND status IN ('closed','cancelled')
+      UNION ALL
+      SELECT pnl FROM pnl_history WHERE bot_type = ?
+    )`);
+    stmt.bind([type, type]);
     if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r.total; }
     stmt.free();
     return 0;
@@ -460,40 +538,55 @@ function deleteInscriptionPreferences(inscriptionId) {
   save();
 }
 
-// Bot strategies CRUD
-function getBotStrategy(inscriptionId, mode) {
-  const stmt = db.prepare("SELECT * FROM bot_strategies WHERE inscription_id = ? AND mode = ?");
+// Bot strategies CRUD (per-level)
+function getBotStrategiesByLevel(inscriptionId, mode) {
+  const stmt = db.prepare("SELECT * FROM bot_strategies WHERE inscription_id = ? AND mode = ? ORDER BY level DESC");
   stmt.bind([inscriptionId, mode]);
-  const row = stmt.step() ? stmt.getAsObject() : null;
-  stmt.free();
-  return row;
-}
-
-function getAllBotStrategies(inscriptionId) {
-  const stmt = db.prepare("SELECT * FROM bot_strategies WHERE inscription_id = ?");
-  stmt.bind([inscriptionId]);
   const rows = [];
   while (stmt.step()) rows.push(stmt.getAsObject());
   stmt.free();
   return rows;
 }
 
-function saveBotStrategy(strategy) {
+function getBotStrategyByLevel(inscriptionId, mode, level) {
+  const stmt = db.prepare("SELECT * FROM bot_strategies WHERE inscription_id = ? AND mode = ? AND level = ?");
+  stmt.bind([inscriptionId, mode, level]);
+  const row = stmt.step() ? stmt.getAsObject() : null;
+  stmt.free();
+  return row;
+}
+
+function saveBotStrategyByLevel(strategy) {
   const stmt = db.prepare(`INSERT OR REPLACE INTO bot_strategies
-    (inscription_id, mode, strategy_name, enabled, parameters, position_size_usdt, max_positions, min_confidence, leverage, stop_loss_percent, take_profit_percent, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
+    (inscription_id, mode, level, strategy_name, enabled, position_size_usdt, min_score, min_confidence, leverage, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
   stmt.run([
-    strategy.inscription_id, strategy.mode, strategy.strategy_name,
-    strategy.enabled ?? 1, JSON.stringify(strategy.parameters || {}),
-    strategy.position_size_usdt ?? 10, strategy.max_positions ?? 5,
-    strategy.min_confidence ?? 5, strategy.leverage ?? 1,
-    strategy.stop_loss_percent ?? 2.0, strategy.take_profit_percent ?? 4.0
+    strategy.inscription_id, strategy.mode, strategy.level,
+    strategy.strategy_name || '', strategy.enabled ?? 1,
+    strategy.position_size_usdt ?? 10, strategy.min_score ?? 6,
+    strategy.min_confidence ?? 6, strategy.leverage ?? 1
   ]);
   stmt.free();
   save();
 }
 
-function deleteBotStrategy(inscriptionId, mode) {
+function saveBotStrategiesByLevel(inscriptionId, mode, levels) {
+  for (const lvl of levels) {
+    saveBotStrategyByLevel({
+      inscription_id: inscriptionId,
+      mode: mode,
+      level: lvl.level,
+      strategy_name: `level_${lvl.level}`,
+      enabled: lvl.enabled ?? 1,
+      position_size_usdt: lvl.amount ?? lvl.position_size_usdt ?? 10,
+      min_score: lvl.min_score ?? lvl.level ?? 6,
+      min_confidence: lvl.min_confidence ?? lvl.level ?? 6,
+      leverage: lvl.leverage ?? 1
+    });
+  }
+}
+
+function deleteBotStrategiesByLevel(inscriptionId, mode) {
   db.run("DELETE FROM bot_strategies WHERE inscription_id = ? AND mode = ?", [inscriptionId, mode]);
   save();
 }
@@ -543,16 +636,40 @@ function setVerifiedOwner(address, botNum, inscriptionId) {
   save();
 }
 
+// Bot API Keys CRUD
+function getBotApiKey(inscriptionId, mode) {
+  const stmt = db.prepare("SELECT api_key, api_secret FROM bot_api_keys WHERE inscription_id = ? AND mode = ?");
+  stmt.bind([inscriptionId, mode]);
+  if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r; }
+  stmt.free();
+  return null;
+}
+
+function saveBotApiKey(inscriptionId, mode, address, apiKey, apiSecret) {
+  const stmt = db.prepare(`INSERT OR REPLACE INTO bot_api_keys
+    (inscription_id, mode, address, api_key, api_secret, updated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))`);
+  stmt.run([inscriptionId, mode, address.toLowerCase(), apiKey, apiSecret]);
+  stmt.free();
+  save();
+}
+
+function deleteBotApiKey(inscriptionId, mode) {
+  db.run("DELETE FROM bot_api_keys WHERE inscription_id = ? AND mode = ?", [inscriptionId, mode]);
+  save();
+}
+
 async function close() { if (db) db.close(); }
 
 module.exports = {
   init, insertOpportunity, getOpportunities, getOpportunitiesFreeTier, getOpportunityById,
-  getStrategyConfigs, deleteOldOpportunities, deleteOpportunity,
+  getStrategyConfigs, deleteOldOpportunities, deleteOpportunity, cleanupOldPositions,
   insertPosition, getPositions, getPositionById, updatePositionPrice, closePosition, cancelPosition,
   getBotConfigs, getBotConfig, updateBotConfig, getBotStats, close,
   insertUserInscription, getUserInscriptions, setSelectedInscription, getSelectedInscription,
   deleteUserInscriptions, setUserInscriptions, selectInscription, setVerifiedOwner,
   getInscriptionPreferences, upsertInscriptionPreferences, deleteInscriptionPreferences,
   getPositionsByInscription,
-  getBotStrategy, getAllBotStrategies, saveBotStrategy, deleteBotStrategy, getActiveInscriptions
+  getBotStrategiesByLevel, getBotStrategyByLevel, saveBotStrategyByLevel, saveBotStrategiesByLevel, deleteBotStrategiesByLevel, getActiveInscriptions,
+  getBotApiKey, saveBotApiKey, deleteBotApiKey
 };

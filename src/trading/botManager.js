@@ -30,9 +30,9 @@ async function evaluateAndExecute(signal, context = {}) {
   const score = Math.round(signal.score || 0);
   const confidence = Math.round(signal.confidence || 0);
   const nivel = Math.min(score, confidence);
-  const tier = getTierConfig(nivel);
-  if (!tier) {
-    logger.info('bot-manager', `Signal score=${score} confidence=${confidence} (nivel=${nivel}) too low, skipping`);
+
+  if (nivel < 6) {
+    logger.info('bot-manager', `Signal score=${score} confidence=${confidence} (nivel=${nivel}) below minimum, skipping`);
     return results;
   }
 
@@ -41,6 +41,32 @@ async function evaluateAndExecute(signal, context = {}) {
     if (!config.enabled) continue;
 
     if (botType === 'spot' && signal.strategyType !== 'long') continue;
+
+    let usdAmount = null;
+    let leverage = 1;
+    let levelEnabled = true;
+
+    if (context.inscriptionId) {
+      const levelConfig = store.getBotStrategyByLevel(context.inscriptionId, botType, nivel);
+      if (levelConfig) {
+        levelEnabled = !!levelConfig.enabled;
+        usdAmount = levelConfig.position_size_usdt;
+        leverage = levelConfig.leverage || 1;
+        if (levelConfig.min_score && score < levelConfig.min_score) {
+          logger.info('bot-manager', `${botType} bot: score ${score} < min_score ${levelConfig.min_score} for level ${nivel}, skipping`);
+          continue;
+        }
+        if (levelConfig.min_confidence && confidence < levelConfig.min_confidence) {
+          logger.info('bot-manager', `${botType} bot: confidence ${confidence} < min_confidence ${levelConfig.min_confidence} for level ${nivel}, skipping`);
+          continue;
+        }
+      }
+    }
+
+    if (!levelEnabled) {
+      logger.info('bot-manager', `${botType} bot: nivel ${nivel} disabled for inscription, skipping`);
+      continue;
+    }
 
     if (confidence < config.min_confidence) {
       logger.info('bot-manager', `${botType} bot: confidence ${confidence} < min ${config.min_confidence}, skipping`);
@@ -59,12 +85,25 @@ async function evaluateAndExecute(signal, context = {}) {
       continue;
     }
 
-    const budgetKey = botType === 'spot' ? 'BOT_SPOT_BUDGET' : 'BOT_FUTURES_BUDGET';
-    const budget = parseFloat(process.env[budgetKey] || '100');
-    const usdAmount = (budget * tier.percent) / 100;
+    if (!usdAmount) {
+      const tierFallback = getTierConfig(nivel);
+      if (!tierFallback) continue;
+      const budgetKey = botType === 'spot' ? 'BOT_SPOT_BUDGET' : 'BOT_FUTURES_BUDGET';
+      const budget = parseFloat(process.env[budgetKey] || '100');
+      usdAmount = (budget * tierFallback.percent) / 100;
+      leverage = tierFallback.leverage;
+    }
+
+    if (context.inscriptionId) {
+      const apiKey = store.getBotApiKey(context.inscriptionId, botType);
+      if (!apiKey) {
+        logger.info('bot-manager', `${botType} bot for inscription ${context.inscriptionId} has no API key, skipping execution`);
+        continue;
+      }
+    }
 
     try {
-      const position = await executor.executeOrder(botType, signal, { usdAmount, leverage: tier.leverage });
+      const position = await executor.executeOrder(botType, signal, { usdAmount, leverage });
       position.confidence = signal.confidence;
       position.factors = signal.factors;
       position.risks = signal.risks;
@@ -73,7 +112,7 @@ async function evaluateAndExecute(signal, context = {}) {
       position.inscriptionId = context.inscriptionId || null;
       position.address = context.address || null;
       const id = store.insertPosition(position);
-      logger.info('bot-manager', `${botType} bot opened position #${id}: $${usdAmount} (${tier.percent}%, nivel=${nivel}) ${signal.strategyType.toUpperCase()} ${signal.asset} at $${signal.currentPrice} | bot=${context.botNum || '?'} addr=${context.address || 'global'}`);
+      logger.info('bot-manager', `${botType} bot opened position #${id}: $${usdAmount} (nivel=${nivel}) ${signal.strategyType.toUpperCase()} ${signal.asset} at $${signal.currentPrice} | bot=${context.botNum || '?'} addr=${context.address || 'global'}`);
       results.push({ ...position, id });
     } catch (error) {
       logger.error('bot-manager', `${botType} bot execution error: ${error.message}`);
