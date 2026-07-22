@@ -163,6 +163,17 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
     UNIQUE(inscription_id, mode, level)
   )`);
 
+  // Trading zones table - catalogo de zonas Trading Avizor
+  db.run(`CREATE TABLE IF NOT EXISTS trading_zones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    type TEXT NOT NULL,
+    start_price REAL NOT NULL,
+    end_price REAL NOT NULL,
+    color TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`);
+
   // Migration: add min_score column if missing
   try {
     const cols = db.exec("PRAGMA table_info(bot_strategies)");
@@ -659,6 +670,22 @@ function deleteBotApiKey(inscriptionId, mode) {
   save();
 }
 
+function getTradingZones(limit = 100) {
+  const result = db.exec(`SELECT id, date, type, start_price, end_price, color FROM trading_zones ORDER BY date DESC LIMIT ${limit}`);
+  if (!result[0]) return [];
+  return result[0].values.map(r => ({
+    id: r[0], date: r[1], type: r[2], start_price: r[3], end_price: r[4], color: r[5]
+  }));
+}
+
+function cleanOldZones() {
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const cutoff = oneYearAgo.toISOString().split('T')[0];
+  db.run('DELETE FROM trading_zones WHERE date < ?', [cutoff]);
+  save();
+}
+
 async function close() { if (db) db.close(); }
 
 module.exports = {
@@ -671,5 +698,6 @@ module.exports = {
   getInscriptionPreferences, upsertInscriptionPreferences, deleteInscriptionPreferences,
   getPositionsByInscription,
   getBotStrategiesByLevel, getBotStrategyByLevel, saveBotStrategyByLevel, saveBotStrategiesByLevel, deleteBotStrategiesByLevel, getActiveInscriptions,
-  getBotApiKey, saveBotApiKey, deleteBotApiKey
+  getBotApiKey, saveBotApiKey, deleteBotApiKey,
+  getTradingZones, cleanOldZones
 };

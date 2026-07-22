@@ -1,6 +1,7 @@
 const express = require('express');
 const binance = require('../trading/binanceClient');
 const renkoStrategy = require('../trading/strategies/renkoAccumulationStrategy');
+const store = require('../trading/tradingStore');
 const logger = require('../logger/logger');
 
 const router = express.Router();
@@ -44,6 +45,17 @@ router.get('/zones', async (req, res) => {
     res.json({ exito: true, data: result });
   } catch (error) {
     logger.error('chart-api', `GET zones error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.get('/trading-zones', (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+    const zones = store.getTradingZones(limit);
+    res.json({ exito: true, data: zones });
+  } catch (error) {
+    logger.error('chart-api', `GET trading-zones error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
   }
 });
