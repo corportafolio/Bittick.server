@@ -678,6 +678,40 @@ function getTradingZones(limit = 100) {
   }));
 }
 
+function getSmartZones(currentPrice) {
+  const seen = new Set();
+  const zones = [];
+  const types = ['compra', 'venta', 'deuda', 'demanda'];
+
+  for (const type of types) {
+    const result = db.exec(
+      `SELECT id, date, type, start_price, end_price, color FROM trading_zones WHERE type = '${type}' ORDER BY date DESC LIMIT 5`
+    );
+    if (result[0]) {
+      for (const r of result[0].values) {
+        if (!seen.has(r[0])) {
+          seen.add(r[0]);
+          zones.push({ id: r[0], date: r[1], type: r[2], start_price: r[3], end_price: r[4], color: r[5] });
+        }
+      }
+    }
+  }
+
+  if (currentPrice && currentPrice > 0) {
+    const result = db.exec(
+      `SELECT id, date, type, start_price, end_price, color FROM trading_zones ORDER BY ABS((start_price + end_price) / 2 - ${currentPrice}) ASC LIMIT 1`
+    );
+    if (result[0] && result[0].values[0]) {
+      const r = result[0].values[0];
+      if (!seen.has(r[0])) {
+        zones.push({ id: r[0], date: r[1], type: r[2], start_price: r[3], end_price: r[4], color: r[5] });
+      }
+    }
+  }
+
+  return zones;
+}
+
 function cleanOldZones() {
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -699,5 +733,5 @@ module.exports = {
   getPositionsByInscription,
   getBotStrategiesByLevel, getBotStrategyByLevel, saveBotStrategyByLevel, saveBotStrategiesByLevel, deleteBotStrategiesByLevel, getActiveInscriptions,
   getBotApiKey, saveBotApiKey, deleteBotApiKey,
-  getTradingZones, cleanOldZones
+  getTradingZones, getSmartZones, cleanOldZones
 };

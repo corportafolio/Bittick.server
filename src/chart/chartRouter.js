@@ -51,8 +51,8 @@ router.get('/zones', async (req, res) => {
 
 router.get('/trading-zones', (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
-    const zones = store.getTradingZones(limit);
+    const price = parseFloat(req.query.price) || null;
+    const zones = price ? store.getSmartZones(price) : store.getTradingZones(100);
     res.json({ exito: true, data: zones });
   } catch (error) {
     logger.error('chart-api', `GET trading-zones error: ${error.message}`);
