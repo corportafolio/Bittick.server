@@ -211,13 +211,19 @@ async function monitorPositions() {
   }
 }
 
-function getBotStatus(type, address = null) {
+function getBotStatus(type, address = null, inscriptionId = null) {
   const config = getBotConfig(type);
   const positions = store.getPositions(type, 'open', address);
   const stats = store.getBotStats(type);
+  let hasApiKey = false;
+  if (inscriptionId) {
+    const apiKey = store.getBotApiKey(inscriptionId, type);
+    hasApiKey = !!apiKey;
+  }
   return {
     type,
     enabled: !!config.enabled,
+    hasApiKey,
     maxPositions: config.max_positions,
     positionSizeUsdt: config.position_size_usdt,
     minConfidence: config.min_confidence,

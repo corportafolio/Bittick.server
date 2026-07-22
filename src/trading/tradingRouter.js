@@ -120,12 +120,13 @@ router.get('/bot/status', async (req, res) => {
     if (!isVerified(address)) {
       return res.status(300).json({
         exito: true,
-        data: { spot: { type: 'spot', enabled: false, maxPositions: 0, positionSizeUsdt: 0, minConfidence: 0, openPositions: 0, totalPnl: 0, balance: null }, futures: { type: 'futures', enabled: false, maxPositions: 0, positionSizeUsdt: 0, minConfidence: 0, openPositions: 0, totalPnl: 0, balance: null } },
+        data: { spot: { type: 'spot', enabled: false, hasApiKey: false, maxPositions: 0, positionSizeUsdt: 0, minConfidence: 0, openPositions: 0, totalPnl: 0, balance: null }, futures: { type: 'futures', enabled: false, hasApiKey: false, maxPositions: 0, positionSizeUsdt: 0, minConfidence: 0, openPositions: 0, totalPnl: 0, balance: null } },
         tier: 'free'
       });
     }
-    const spotStatus = botManager.getBotStatus('spot', address);
-    const futuresStatus = botManager.getBotStatus('futures', address);
+    const inscriptionId = req.query.inscriptionId || null;
+    const spotStatus = botManager.getBotStatus('spot', address, inscriptionId);
+    const futuresStatus = botManager.getBotStatus('futures', address, inscriptionId);
     const [spotBalance, futuresBalance] = await Promise.all([
       botManager.getBotBalance('spot', address),
       botManager.getBotBalance('futures', address)
