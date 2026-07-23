@@ -36,7 +36,10 @@ async function evaluateAndExecute(signal, context = {}) {
     return results;
   }
 
-  for (const botType of BOT_TYPES) {
+  const targetBotType = signal.botType || 'futures';
+  const botTypes = targetBotType === 'spot' ? ['spot'] : ['futures'];
+
+  for (const botType of botTypes) {
     const config = getBotConfig(botType);
     if (!config.enabled) continue;
 

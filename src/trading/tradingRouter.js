@@ -16,9 +16,10 @@ router.get('/opportunities', (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const offset = parseInt(req.query.offset) || 0;
     const since = req.query.since || null;
+    const botType = req.query.bot_type || null;
     const address = req.headers['x-wallet-address'];
     if (isVerified(address)) {
-      const opportunities = store.getOpportunities(limit, offset, since);
+      const opportunities = store.getOpportunities(limit, offset, since, botType);
       res.json({ exito: true, data: opportunities, tier: 'premium' });
     } else {
       const opportunities = store.getOpportunitiesFreeTier(limit, offset);

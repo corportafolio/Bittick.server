@@ -39,6 +39,7 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
   )`);
 
   try { db.run("ALTER TABLE opportunities ADD COLUMN horizonte TEXT DEFAULT 'horas'"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN bot_type TEXT NOT NULL DEFAULT 'futures'"); } catch (e) {}
 
   db.run(`CREATE TABLE IF NOT EXISTS strategy_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -239,9 +240,9 @@ function save() {
 
 function insertOpportunity(op) {
   const stmt = db.prepare(`INSERT INTO opportunities
-    (asset, strategy_type, price, entry_zone, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`);
-  stmt.run([op.asset, op.strategyType, op.currentPrice, op.entryZone,
+    (asset, strategy_type, bot_type, price, entry_zone, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`);
+  stmt.run([op.asset, op.strategyType, op.botType || 'futures', op.currentPrice, op.entryZone,
     op.target, op.stopLoss, op.score, op.confidence || 0,
     op.explanation || '', JSON.stringify(op.factors || []),
     JSON.stringify(op.risks || []), JSON.stringify(op.signals || {}), op.horizonte || 'horas']);
@@ -249,13 +250,21 @@ function insertOpportunity(op) {
   save();
 }
 
-function getOpportunities(limit = 50, offset = 0, since = null) {
+function getOpportunities(limit = 50, offset = 0, since = null, botType = null) {
   let sql = "SELECT * FROM opportunities";
+  const conditions = [];
   const params = [];
   if (since) {
     const sinceDate = since.replace('T', ' ').replace('Z', '');
-    sql += " WHERE created_at > ?";
+    conditions.push("created_at > ?");
     params.push(sinceDate);
+  }
+  if (botType) {
+    conditions.push("bot_type = ?");
+    params.push(botType);
+  }
+  if (conditions.length > 0) {
+    sql += " WHERE " + conditions.join(" AND ");
   }
   sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
   params.push(limit, offset);

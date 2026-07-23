@@ -36,10 +36,19 @@ async function scanMarket() {
         if (signal) {
           logger.info('trading', `Signal detected by ${config.name}: ${signal.strategyType} at $${signal.currentPrice} (score: ${signal.score})`);
           const analysis = await aiAnalyzer.analyze(signal);
-          const op = { ...signal, confidence: analysis.confidence, explanation: analysis.explanation, factors: analysis.factors, risks: analysis.risks, horizonte: analysis.horizonte };
-          store.insertOpportunity(op);
-          results.push(op);
-          signals.push(op);
+          const base = { ...signal, confidence: analysis.confidence, explanation: analysis.explanation, factors: analysis.factors, risks: analysis.risks, horizonte: analysis.horizonte };
+
+          const futuresOp = { ...base, botType: 'futures' };
+          store.insertOpportunity(futuresOp);
+          results.push(futuresOp);
+          signals.push(futuresOp);
+
+          if (signal.strategyType === 'long') {
+            const spotOp = { ...base, botType: 'spot' };
+            store.insertOpportunity(spotOp);
+            results.push(spotOp);
+            signals.push(spotOp);
+          }
         }
       } catch (strategyError) {
         logger.error('trading-strategy', `Strategy ${config.name} error: ${strategyError.message}`);
