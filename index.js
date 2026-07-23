@@ -8,6 +8,7 @@ const NODE_ENV = process.env.NODE_ENV || 'production';
 const logger = require('./src/logger/logger');
 const tradingRouter = require('./src/trading/tradingRouter');
 const tradingScheduler = require('./src/trading/tradingScheduler');
+const tradingStore = require('./src/trading/tradingStore');
 const chartRouter = require('./src/chart/chartRouter');
 const authRouter = require('./src/auth/authRouter');
 
@@ -50,13 +51,15 @@ app.listen(PORT, '0.0.0.0', () => {
   }, 1000);
 });
 
-process.on('SIGTERM', () => {
-  logger.info('server', 'Recibido SIGTERM, cerrando servidor...');
+process.on('SIGTERM', async () => {
+  logger.info('server', 'Recibido SIGTERM, guardando DB y cerrando servidor...');
+  try { await tradingStore.save(); } catch (_) {}
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
-  logger.info('server', 'Recibido SIGINT, cerrando servidor...');
+process.on('SIGINT', async () => {
+  logger.info('server', 'Recibido SIGINT, guardando DB y cerrando servidor...');
+  try { await tradingStore.save(); } catch (_) {}
   process.exit(0);
 });
 

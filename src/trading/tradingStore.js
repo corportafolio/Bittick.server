@@ -587,7 +587,6 @@ function saveBotStrategyByLevel(strategy) {
     strategy.min_confidence ?? 6, strategy.leverage ?? 1
   ]);
   stmt.free();
-  save();
 }
 
 function saveBotStrategiesByLevel(inscriptionId, mode, levels) {
@@ -604,6 +603,7 @@ function saveBotStrategiesByLevel(inscriptionId, mode, levels) {
       leverage: lvl.leverage ?? 1
     });
   }
+  save();
 }
 
 function deleteBotStrategiesByLevel(inscriptionId, mode) {
@@ -742,5 +742,6 @@ module.exports = {
   getPositionsByInscription,
   getBotStrategiesByLevel, getBotStrategyByLevel, saveBotStrategyByLevel, saveBotStrategiesByLevel, deleteBotStrategiesByLevel, getActiveInscriptions,
   getBotApiKey, saveBotApiKey, deleteBotApiKey,
-  getTradingZones, getSmartZones, cleanOldZones
+  getTradingZones, getSmartZones, cleanOldZones,
+  save
 };
