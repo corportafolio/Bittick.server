@@ -1,7 +1,15 @@
 node_modules/
+hermes/venv/
+data/*.db
+*.db
 .env
+.vscode/
+.idea/
+.DS_Store
+*.log
 logs/
 server.log
-*.log
-.vscode/
-.DS_Store
+.opencode/
+.opencode
+diseño de pantallas/
+docs/
