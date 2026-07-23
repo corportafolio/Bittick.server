@@ -1,5 +1,5 @@
 node_modules/
-hermes/venv/
+hermes/
 data/*.db
 *.db
 .env
