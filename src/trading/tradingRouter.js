@@ -311,6 +311,29 @@ router.get('/bot-apikey/:inscriptionId/:mode/raw', (req, res) => {
   }
 });
 
+router.post('/bot-apikey/all', (req, res) => {
+  try {
+    const address = req.headers['x-wallet-address'];
+    if (!isVerified(address)) {
+      return res.status(403).json({ exito: false, error: 'Unauthorized' });
+    }
+    const { inscription_id, spot_key, spot_secret, futures_key, futures_secret } = req.body;
+    if (!inscription_id) {
+      return res.status(400).json({ exito: false, error: 'inscription_id is required' });
+    }
+    if (spot_key && spot_secret) {
+      store.saveBotApiKey(inscription_id, 'spot', address, spot_key, spot_secret);
+    }
+    if (futures_key && futures_secret) {
+      store.saveBotApiKey(inscription_id, 'futures', address, futures_key, futures_secret);
+    }
+    res.json({ exito: true, message: 'API keys saved' });
+  } catch (error) {
+    logger.error('trading-api', `POST bot-apikey/all error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
 router.post('/bot-apikey', (req, res) => {
   try {
     const address = req.headers['x-wallet-address'];
