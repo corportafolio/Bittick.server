@@ -302,6 +302,26 @@ router.delete('/strategies/levels/:inscriptionId/:mode', (req, res) => {
 });
 
 // Bot API Key endpoints (per-bot per-mode Binance credentials)
+router.get('/bot-apikey/:inscriptionId/status', (req, res) => {
+  try {
+    const { inscriptionId } = req.params;
+    const spot = store.getBotApiKey(inscriptionId, 'spot');
+    const futures = store.getBotApiKey(inscriptionId, 'futures');
+    res.json({
+      exito: true,
+      data: {
+        spot_api_key: spot != null && spot.api_key != null && spot.api_key.length > 0,
+        spot_api_secret: spot != null && spot.api_secret != null && spot.api_secret.length > 0,
+        futures_api_key: futures != null && futures.api_key != null && futures.api_key.length > 0,
+        futures_api_secret: futures != null && futures.api_secret != null && futures.api_secret.length > 0
+      }
+    });
+  } catch (error) {
+    logger.error('trading-api', `GET bot-apikey/status error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
 router.get('/bot-apikey/:inscriptionId/:mode', (req, res) => {
   try {
     const { inscriptionId, mode } = req.params;
