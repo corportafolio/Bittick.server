@@ -328,7 +328,10 @@ router.get('/bot-apikey/:inscriptionId/:mode/raw', (req, res) => {
     }
     const { inscriptionId, mode } = req.params;
     const key = store.getBotApiKey(inscriptionId, mode);
-    res.json({ exito: true, data: key });
+    if (!key) {
+      return res.json({ exito: true, data: null });
+    }
+    res.json({ exito: true, data: { ...key, has_key: true } });
   } catch (error) {
     logger.error('trading-api', `GET bot-apikey/raw error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
