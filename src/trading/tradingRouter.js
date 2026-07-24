@@ -251,6 +251,30 @@ router.get('/strategies/levels/:inscriptionId/:mode', (req, res) => {
   }
 });
 
+router.get('/strategies/levels/:inscriptionId', (req, res) => {
+  try {
+    const { inscriptionId } = req.params;
+    const spotLevels = store.getBotStrategiesByLevel(inscriptionId, 'spot');
+    const futuresLevels = store.getBotStrategiesByLevel(inscriptionId, 'futures');
+    
+    const defaultLevels = [
+      { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 3 },
+      { level: 9, enabled: 1, position_size_usdt: 20, min_score: 9, min_confidence: 9, leverage: 3 },
+      { level: 8, enabled: 1, position_size_usdt: 40, min_score: 8, min_confidence: 8, leverage: 3 },
+      { level: 7, enabled: 1, position_size_usdt: 20, min_score: 7, min_confidence: 7, leverage: 2 },
+      { level: 6, enabled: 1, position_size_usdt: 10, min_score: 6, min_confidence: 6, leverage: 1 }
+    ];
+    
+    const spot = (spotLevels && spotLevels.length > 0) ? spotLevels : defaultLevels;
+    const futures = (futuresLevels && futuresLevels.length > 0) ? futuresLevels : defaultLevels;
+    
+    res.json({ exito: true, data: { spot, futures } });
+  } catch (error) {
+    logger.error('trading-api', `GET strategies/levels (both) error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
 router.post('/strategies/levels', (req, res) => {
   try {
     const { inscription_id, mode, levels } = req.body;
