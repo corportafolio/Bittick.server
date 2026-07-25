@@ -1,7 +1,8 @@
-/* BITTICK WEB - SERVICE WORKER v3.1.0
+/* BITTICK WEB - SERVICE WORKER v3.2.0
    Network-first for HTML/CSS/JS (always fresh)
    Cache-first for images (bots/)
    Auto-updates on every page load
+   Forces reload when new SW detected
 */
 var CACHE_NAME = 'bittick-static-v6';
 
@@ -22,10 +23,16 @@ self.addEventListener('activate', function(e){
         names.filter(function(n){ return n !== CACHE_NAME; })
              .map(function(n){ return caches.delete(n); })
       );
+    }).then(function(){
+      return self.clients.claim();
     })
   );
-  self.clients.claim();
 });
+
+// Check for SW updates every 30 seconds
+setInterval(function(){
+  self.registration.update().catch(function(){});
+}, 30000);
 
 self.addEventListener('fetch', function(e){
   var url = new URL(e.request.url);
