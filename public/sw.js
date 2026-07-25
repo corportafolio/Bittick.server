@@ -3,7 +3,7 @@
    Cache-first for images (bots/)
    Auto-updates on every page load
 */
-var CACHE_NAME = 'bittick-static-v5';
+var CACHE_NAME = 'bittick-static-v6';
 
 self.addEventListener('install', function(e){
   self.skipWaiting();
