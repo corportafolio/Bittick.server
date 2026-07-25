@@ -31,21 +31,15 @@ function validateAndConsumeNonce(address, nonce) {
   return true;
 }
 
-function verifyMessageSignature(address, message, signature) {
+const verifyMessageSignature = (address, message, signature) => {
   try {
-    const secp256k1 = require('secp256k1');
-    const { hashMessage } = require('ethers');
-    const msgHash = hashMessage(message);
-    const sig = Buffer.from(signature, 'base64');
-    const pubKey = secp256k1.ecdsaRecover(sig.slice(0, 64), sig[64], msgHash, false);
-    const recoveredAddress = crypto.createHash('sha256').update(pubKey.slice(1)).digest();
-    const recoveredAddressHex = '0x' + recoveredAddress.slice(-20).toString('hex');
-    return recoveredAddressHex.toLowerCase() === address.toLowerCase();
+    const bitcoinMessage = require('bitcoinjs-message');
+    return bitcoinMessage.verify(message, address, signature);
   } catch (e) {
-    logger.error('auth', `Signature verification error: ${e.message}`);
+    logger.error('auth', 'Signature verification error: ' + e.message);
     return false;
   }
-}
+};
 
 async function findAllBittickInscriptions(address) {
   try {
