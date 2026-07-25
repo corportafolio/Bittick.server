@@ -24,6 +24,7 @@ var store = {
   state: {
     auth: {
       address: null,
+      walletId: null,
       verified: false,
       inscriptions: [],
       selectedInscription: null,
@@ -122,16 +123,17 @@ var $ = function(id) { return document.getElementById(id); };
 var els = {};
 function cacheDom() {
   ['header','menu-btn','logo','bot-info','btc-price','notif-btn','notif-badge',
-   'right-panel','panel-close','backdrop','main-layout','sidebar','opportunities-list','opp-count',
-   'content','login-view','connect-wallet-btn','login-loading','login-status',
-   'login-error','login-error-msg','retry-btn','inscription-select','inscription-count','inscription-list','use-bot-btn',
-   'dashboard-view','chart-section','timeframe-selector','chart-container','chart-info',
-   'spot-positions-list','futures-positions-list',
-   'bot-spot-content','bot-futures-content',
-   'settings-view','settings-content',
-   'wallet-info','wallet-address','disconnect-btn',
-   'modal-overlay','modal-content','toast-container',
-   'menu-connect-text'
+    'right-panel','panel-close','backdrop','main-layout','sidebar','opportunities-list','opp-count',
+    'content','account-view','wallet-selector-section','wallet-selector','login-loading','login-status',
+    'login-error','login-error-msg','retry-btn','account-screen','wallet-card','preview-card',
+    'inscription-count','inscription-list','account-loading','account-status','account-error','account-error-msg','account-retry-btn','account-close-btn',
+    'dashboard-view','chart-section','timeframe-selector','chart-container','chart-info',
+    'spot-positions-list','futures-positions-list',
+    'bot-spot-content','bot-futures-content',
+    'settings-view','settings-content',
+    'wallet-info','wallet-address','disconnect-btn',
+    'modal-overlay','modal-content','toast-container',
+    'menu-account-btn','menu-account-text','menu-bot-img','header-bot-image','header-bot-img','header-bot-num'
   ].forEach(function(id) { els[id] = $(id); });
 }
 
@@ -195,21 +197,40 @@ function hideModal() {
 }
 
 /* ============================================
-   AUTH MODULE
+   AUTH MODULE — Multi-wallet support
    ============================================ */
-function detectWallet() {
-  if (window.unisat) return { provider: window.unisat, name: 'unisat' };
-  if (window.ethereum) return { provider: window.ethereum, name: 'metamask' };
-  if (window.okxwallet) return { provider: window.okxwallet, name: 'okx' };
-  return null;
+function detectInstalledWallets() {
+  var unisat = !!window.unisat;
+  var xverse = !!(window.XverseProviders || (window.satsconnect && window.satsconnect.Wallet));
+  return { unisat: unisat, xverse: xverse };
 }
 
-function connectWallet(walletInfo) {
-  return walletInfo.provider.request({ method: 'eth_requestAccounts' })
-    .then(function(accs) {
-      if (!accs || !accs.length) throw new Error('No se detectaron cuentas en la wallet');
+function connectWallet(walletId) {
+  if (walletId === 'unisat') {
+    return window.unisat.requestAccounts().then(function(accs) {
+      if (!accs || !accs.length) throw new Error('No se detectaron cuentas en UniSat');
       return accs[0];
     });
+  }
+  if (walletId === 'xverse') {
+    return new Promise(function(resolve, reject) {
+      var Wallet = (window.satsconnect && window.satsconnect.Wallet) || window.Wallet;
+      if (!Wallet) return reject(new Error('sats-connect no está cargado'));
+      Wallet.request('wallet_connect', null).then(function(response) {
+        if (response.status === 'success') {
+          var addrs = response.result.addresses;
+          var ord = addrs.find(function(a) { return a.purpose === 'ordinals'; });
+          var pay = addrs.find(function(a) { return a.purpose === 'payment'; });
+          resolve((ord || pay || addrs[0]).address);
+        } else {
+          reject(new Error('Conexión cancelada por el usuario'));
+        }
+      }).catch(function(err) {
+        reject(new Error(err.error && err.error.message || 'Error conectando con Xverse'));
+      });
+    });
+  }
+  return Promise.reject(new Error('Wallet no soportada: ' + walletId));
 }
 
 function getNonce(address) {
@@ -220,11 +241,26 @@ function getNonce(address) {
     });
 }
 
-function signMessage(walletInfo, message) {
-  return walletInfo.provider.request({
-    method: 'personal_sign',
-    params: [message, store.state.auth.address]
-  });
+function signMessage(walletId, message, address) {
+  if (walletId === 'unisat') {
+    return window.unisat.signMessage(message);
+  }
+  if (walletId === 'xverse') {
+    return new Promise(function(resolve, reject) {
+      var Wallet = (window.satsconnect && window.satsconnect.Wallet) || window.Wallet;
+      if (!Wallet) return reject(new Error('sats-connect no está cargado'));
+      Wallet.request('signMessage', { message: message, address: address }).then(function(response) {
+        if (response.status === 'success') {
+          resolve(response.result.signature);
+        } else {
+          reject(new Error('Firma cancelada por el usuario'));
+        }
+      }).catch(function(err) {
+        reject(new Error(err.error && err.error.message || 'Error firmando con Xverse'));
+      });
+    });
+  }
+  return Promise.reject(new Error('Wallet no soportada: ' + walletId));
 }
 
 function verifyWallet(address, signature, nonce) {
@@ -251,6 +287,7 @@ function saveSession() {
   var s = store.state;
   var session = {
     address: s.auth.address,
+    walletId: s.auth.walletId,
     verified: s.auth.verified,
     inscriptions: s.auth.inscriptions,
     selectedInscription: s.auth.selectedInscription,
@@ -274,6 +311,7 @@ function restoreSession() {
     }
     store.dispatch('SET_AUTH', {
       address: session.address,
+      walletId: session.walletId || null,
       verified: session.verified,
       inscriptions: session.inscriptions || [],
       selectedInscription: session.selectedInscription,
@@ -282,6 +320,8 @@ function restoreSession() {
       botImageUrl: session.botImageUrl,
       botName: session.botName
     });
+    // Update header and menu bot image
+    updateHeaderBotImage();
     return true;
   } catch(e) {
     localStorage.removeItem(SESSION_KEY);
@@ -291,7 +331,7 @@ function restoreSession() {
 
 function disconnect() {
   store.dispatch('SET_AUTH', {
-    address: null, verified: false, inscriptions: [],
+    address: null, walletId: null, verified: false, inscriptions: [],
     selectedInscription: null, botNum: null, tier: null,
     botImageUrl: null, botName: null
   });
@@ -302,40 +342,319 @@ function disconnect() {
   toast('Wallet desconectada', 'info');
 }
 
+/* --- BOT IMAGE CACHE --- */
+var BOT_IMAGE_CACHE_KEY = 'bittick_bot_images';
+var BOT_IMAGE_CACHE_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 días
+
+function getCachedBotImage(botNum) {
+  try {
+    var cache = JSON.parse(localStorage.getItem(BOT_IMAGE_CACHE_KEY) || '{}');
+    var entry = cache[botNum];
+    if (entry && Date.now() < entry.expiresAt) {
+      return entry.base64;
+    }
+  } catch(e) {}
+  return null;
+}
+
+function setCachedBotImage(botNum, base64) {
+  try {
+    var cache = JSON.parse(localStorage.getItem(BOT_IMAGE_CACHE_KEY) || '{}');
+    cache[botNum] = {
+      base64: base64,
+      expiresAt: Date.now() + BOT_IMAGE_CACHE_EXPIRY
+    };
+    localStorage.setItem(BOT_IMAGE_CACHE_KEY, JSON.stringify(cache));
+  } catch(e) {}
+}
+
+function fetchBotImage(botNum) {
+  var cached = getCachedBotImage(botNum);
+  if (cached) return Promise.resolve(cached);
+
+  return api.get('/api/auth/bot-image/' + botNum + '.png', false)
+    .then(function(json) {
+      if (json.exito && json.data && json.data.base64) {
+        setCachedBotImage(botNum, json.data.base64);
+        return json.data.base64;
+      }
+      return null;
+    })
+    .catch(function() {
+      return null;
+    });
+}
+
+/* --- ACCOUNT SCREEN RENDER --- */
+var previewInscription = null;
+
+function renderAccountScreen() {
+  var auth = store.state.auth;
+  if (!auth.address || !auth.inscriptions || !auth.inscriptions.length) return;
+
+  // Render wallet card (Burbuja 1)
+  renderWalletCard();
+
+  // Render preview card (Burbuja 2) if there's a preview inscription
+  if (previewInscription) {
+    renderPreviewCard(previewInscription);
+  } else {
+    var previewEl = els['preview-card'];
+    if (previewEl) previewEl.classList.add('hidden');
+  }
+
+  // Render inscription list (Burbuja 3)
+  renderInscriptionList();
+}
+
+function renderWalletCard() {
+  var auth = store.state.auth;
+  var cardEl = els['wallet-card'];
+  if (!cardEl) return;
+
+  var tier = auth.tier || 'STANDARD';
+  var isPremium = tier === 'FOUNDER';
+  var botNum = auth.botNum || (auth.inscriptions && auth.inscriptions[0] ? auth.inscriptions[0].num : null);
+  var address = auth.address || '';
+  var truncated = address.length > 18 ? address.substring(0, 8) + '...' + address.substring(address.length - 8) : address;
+
+  var botImageHtml = '';
+  if (botNum) {
+    var cachedImage = getCachedBotImage(botNum);
+    if (cachedImage) {
+      botImageHtml = '<img src="data:image/png;base64,' + cachedImage + '" alt="Bot #' + botNum + '" class="wallet-card-bot-img">';
+    } else {
+      botImageHtml = '<div class="wallet-card-bot-img placeholder">#' + botNum + '</div>';
+      // Fetch async
+      fetchBotImage(botNum).then(function(base64) {
+        if (base64 && store.state.auth.botNum === botNum) {
+          var imgEl = cardEl.querySelector('.wallet-card-bot-img');
+          if (imgEl) {
+            imgEl.outerHTML = '<img src="data:image/png;base64,' + base64 + '" alt="Bot #' + botNum + '" class="wallet-card-bot-img">';
+          }
+        }
+      });
+    }
+  }
+
+  cardEl.innerHTML =
+    '<div class="wallet-card-header">' +
+      '<span class="wallet-card-title">Wallet conectada</span>' +
+      '<span class="wallet-card-badge ' + (isPremium ? 'premium' : 'free') + '">' + (isPremium ? 'PREMIUM' : 'GRATIS') + '</span>' +
+    '</div>' +
+    (botNum ? '<div class="wallet-card-bot">' + botImageHtml + '<span class="wallet-card-bot-num">Bot #' + botNum + '</span></div>' : '') +
+    '<div class="wallet-card-address">' + truncated + '</div>' +
+    '<button id="disconnect-btn-account" class="btn btn-secondary btn-sm">Desconectar</button>';
+
+  // Bind disconnect
+  var disconnectBtn = cardEl.querySelector('#disconnect-btn-account');
+  if (disconnectBtn) {
+    disconnectBtn.onclick = function() { disconnect(); };
+  }
+}
+
+function renderPreviewCard(insc) {
+  var previewEl = els['preview-card'];
+  if (!previewEl) return;
+
+  var tier = insc.tier || 'STANDARD';
+  var isPremium = tier === 'FOUNDER';
+  var botNum = insc.num;
+  var isSelected = store.state.auth.selectedInscription === insc.inscriptionId;
+
+  var botImageHtml = '';
+  var cachedImage = getCachedBotImage(botNum);
+  if (cachedImage) {
+    botImageHtml = '<img src="data:image/png;base64,' + cachedImage + '" alt="Bot #' + botNum + '" class="preview-card-bot-img">';
+  } else {
+    botImageHtml = '<div class="preview-card-bot-img placeholder">#' + botNum + '</div>';
+    fetchBotImage(botNum).then(function(base64) {
+      if (base64 && previewInscription && previewInscription.num === botNum) {
+        var imgEl = previewEl.querySelector('.preview-card-bot-img');
+        if (imgEl) {
+          imgEl.outerHTML = '<img src="data:image/png;base64,' + base64 + '" alt="Bot #' + botNum + '" class="preview-card-bot-img">';
+        }
+      }
+    });
+  }
+
+  previewEl.innerHTML =
+    '<div class="preview-card-bot">' + botImageHtml + '</div>' +
+    '<div class="preview-card-info">' +
+      '<div class="preview-card-bot-num">🤖  Bot #' + botNum + '</div>' +
+      '<div class="preview-card-tier ' + tier.toLowerCase() + '">' + tier + '</div>' +
+    '</div>' +
+    '<div class="preview-card-actions">' +
+      '<span class="preview-card-badge ' + (isPremium ? 'premium' : 'free') + '">' + (isPremium ? 'PREMIUM' : 'GRATIS') + '</span>' +
+      (isSelected ?
+        '<span class="preview-card-selected">SELECCIONADO</span>' :
+        '<button class="btn btn-cyan btn-sm" onclick="onUseBot(\'' + insc.inscriptionId + '\')">USAR</button>'
+      ) +
+    '</div>';
+
+  previewEl.classList.remove('hidden');
+}
+
+function renderInscriptionList() {
+  var auth = store.state.auth;
+  var listEl = els['inscription-list'];
+  var countEl = els['inscription-count'];
+  if (!listEl || !auth.inscriptions) return;
+
+  var inscriptions = auth.inscriptions;
+  countEl.textContent = inscriptions.length + ' inscripción(es)';
+
+  listEl.innerHTML = '';
+
+  inscriptions.forEach(function(insc) {
+    var isSelected = auth.selectedInscription === insc.inscriptionId;
+    var isPreview = previewInscription && previewInscription.inscriptionId === insc.inscriptionId;
+
+    var card = document.createElement('div');
+    card.className = 'account-inscription-item' + (isSelected ? ' selected' : '') + (isPreview ? ' preview' : '');
+    card.dataset.inscriptionId = insc.inscriptionId;
+
+    var botNum = insc.num;
+    var tier = insc.tier || 'STANDARD';
+    var isPremium = tier === 'FOUNDER';
+
+    var botImageHtml = '';
+    var cachedImage = getCachedBotImage(botNum);
+    if (cachedImage) {
+      botImageHtml = '<img src="data:image/png;base64,' + cachedImage + '" alt="Bot #' + botNum + '" class="inscription-item-bot-img">';
+    } else {
+      botImageHtml = '<div class="inscription-item-bot-img placeholder">#' + botNum + '</div>';
+      fetchBotImage(botNum).then(function(base64) {
+        var imgEl = card.querySelector('.inscription-item-bot-img');
+        if (imgEl && base64) {
+          imgEl.outerHTML = '<img src="data:image/png;base64,' + base64 + '" alt="Bot #' + botNum + '" class="inscription-item-bot-img">';
+        }
+      });
+    }
+
+    card.innerHTML =
+      '<div class="inscription-item-number">#' + botNum + '</div>' +
+      '<div class="inscription-item-info">' +
+        '<div class="inscription-item-name">Bot #' + botNum + '</div>' +
+        '<div class="inscription-item-tier ' + tier.toLowerCase() + '">' + tier + '</div>' +
+      '</div>' +
+      (isSelected ? '<span class="inscription-item-check">✓</span>' : '');
+
+    card.onclick = function() {
+      setPreviewInscription(insc);
+    };
+
+    listEl.appendChild(card);
+  });
+}
+
+function setPreviewInscription(insc) {
+  previewInscription = insc;
+  renderAccountScreen();
+}
+
+function onUseBot(inscriptionId) {
+  var useBtn = document.querySelector('.preview-card-actions .btn-cyan');
+  if (useBtn) {
+    useBtn.disabled = true;
+    useBtn.textContent = 'Seleccionando...';
+  }
+
+  selectInscription(inscriptionId)
+    .then(function(selData) {
+      store.dispatch('SET_AUTH', {
+        selectedInscription: selData.selectedInscriptionId,
+        botNum: selData.selectedBotNum,
+        tier: selData.tier,
+        botImageUrl: selData.botImageUrl,
+        botName: 'Bot #' + selData.selectedBotNum
+      });
+      toast('Bot #' + selData.selectedBotNum + ' seleccionado', 'success');
+      saveSession();
+      previewInscription = null;
+      // Update header and menu bot image
+      updateHeaderBotImage();
+      // Navigate to dashboard
+      window.location.hash = '#/dashboard';
+      // Start polling
+      polling.fetchAll();
+      polling.start();
+    })
+    .catch(function(err) {
+      toast(err.message || 'Error seleccionando bot', 'error');
+      if (useBtn) {
+        useBtn.disabled = false;
+        useBtn.textContent = 'USAR';
+      }
+    });
+}
+
+function updateHeaderBotImage() {
+  var auth = store.state.auth;
+  var botNum = auth.botNum;
+  var headerImg = document.getElementById('header-bot-img');
+  var headerNum = document.getElementById('header-bot-num');
+  var headerContainer = document.getElementById('header-bot-image');
+  var menuImg = document.getElementById('menu-bot-img');
+  var menuBtn = document.getElementById('menu-account-btn');
+  var menuText = document.getElementById('menu-account-text');
+
+  if (botNum) {
+    var cachedImage = getCachedBotImage(botNum);
+    if (cachedImage) {
+      if (headerImg) headerImg.src = 'data:image/png;base64,' + cachedImage;
+      if (menuImg) menuImg.src = 'data:image/png;base64,' + cachedImage;
+    }
+    if (headerContainer) headerContainer.classList.remove('hidden');
+    if (menuImg) menuImg.classList.remove('hidden');
+    if (headerNum) headerNum.textContent = '#' + botNum;
+  } else {
+    if (headerContainer) headerContainer.classList.add('hidden');
+    if (menuImg) menuImg.classList.add('hidden');
+  }
+}
+
 /* --- FULL LOGIN FLOW --- */
-function fullLoginFlow() {
-  var btn = els['connect-wallet-btn'];
+function fullLoginFlow(walletId) {
   var loading = els['login-loading'];
   var errorEl = els['login-error'];
   var statusEl = els['login-status'];
+  var selectorEl = els['wallet-selector'];
+  var walletSelectorSection = els['wallet-selector-section'];
+  var accountScreen = els['account-screen'];
+  var accountView = els['account-view'];
 
-  btn.classList.add('hidden');
+  if (selectorEl) selectorEl.classList.add('hidden');
+  if (walletSelectorSection) walletSelectorSection.classList.add('hidden');
+  if (accountScreen) accountScreen.classList.remove('hidden');
+  if (accountView) accountView.classList.remove('hidden');
+
   loading.classList.remove('hidden');
   errorEl.classList.add('hidden');
 
-  var walletInfo;
   var address;
+  var nonce;
 
-  detectWallet()
-    .then(function(wi) {
-      if (!wi) throw new Error('No se detectó una wallet compatible. Instalá UniSat, MetaMask o OKX Wallet.');
-      walletInfo = wi;
+  Promise.resolve()
+    .then(function() {
+      if (!walletId) throw new Error('Seleccioná una wallet para conectar');
       statusEl.textContent = 'Conectando wallet...';
-      return connectWallet(wi);
+      return connectWallet(walletId);
     })
     .then(function(addr) {
       address = addr;
-      store.dispatch('SET_AUTH', { address: addr });
+      store.dispatch('SET_AUTH', { address: addr, walletId: walletId });
       statusEl.textContent = 'Obteniendo nonce...';
       return getNonce(addr);
     })
     .then(function(nonceData) {
+      nonce = nonceData.nonce;
       statusEl.textContent = 'Firmando mensaje...';
-      return signMessage(walletInfo, nonceData.message);
+      return signMessage(walletId, nonceData.message, address);
     })
     .then(function(signature) {
       statusEl.textContent = 'Verificando wallet...';
-      return verifyWallet(address, signature, store.state.auth.nonce);
+      return verifyWallet(address, signature, nonce);
     })
     .then(function(verifyData) {
       store.dispatch('SET_AUTH', {
@@ -360,23 +679,25 @@ function fullLoginFlow() {
               botName: 'Bot #' + selData.selectedBotNum
             });
           });
-      } else {
-        showInscriptionSelect(verifyData.inscriptions);
-        loading.classList.add('hidden');
-        return null;
       }
+      return null;
     })
     .then(function() {
-      if (store.state.auth.verified && store.state.auth.selectedInscription) {
-        toast('Conexión exitosa — Bot #' + store.state.auth.botNum + ' (' + store.state.auth.tier + ')', 'success');
-        saveSession();
-        window.location.hash = '#/dashboard';
-      }
+      loading.classList.add('hidden');
+      // Render account screen after successful verification
+      renderAccountScreen();
+      // Update header and menu
+      updateHeaderBotImage();
+      // Show account screen, hide wallet selector
+      if (walletSelectorSection) walletSelectorSection.classList.add('hidden');
+      if (accountScreen) accountScreen.classList.remove('hidden');
     })
     .catch(function(err) {
       toast(err.message || 'Error en la conexión', 'error');
       loading.classList.add('hidden');
-      btn.classList.remove('hidden');
+      if (selectorEl) selectorEl.classList.remove('hidden');
+      if (walletSelectorSection) walletSelectorSection.classList.remove('hidden');
+      if (accountScreen) accountScreen.classList.add('hidden');
       errorEl.classList.remove('hidden');
       els['login-error-msg'].textContent = err.message || 'Error desconocido';
     });
@@ -558,26 +879,36 @@ function isPremium() {
 }
 
 function showView(view) {
-  var isLogin = view === 'login';
+  var isAccount = view === 'account';
   var isDashboard = view === 'dashboard';
   var isSettings = view === 'settings';
 
-  els['login-view'].classList.toggle('hidden', !isLogin);
+  els['account-view'].classList.toggle('hidden', !isAccount);
   els['dashboard-view'].classList.toggle('hidden', !isDashboard);
   els['settings-view'].classList.toggle('hidden', !isSettings);
 
-  if (isLogin) {
-    els['menu-connect-text'].textContent = isPremium() ? 'Cambiar Bot' : 'Conectar Wallet';
-  } else {
-    els['menu-connect-text'].textContent = isPremium() ? 'Cambiar Bot' : 'Conectar Wallet';
-  }
+  /* Update menu text based on auth state */
+  updateMenuAuthState();
+}
 
-  /* Update wallet-info in panel */
-  if (isPremium()) {
-    els['wallet-info'].classList.remove('hidden');
-    els['wallet-address'].textContent = truncateAddress(store.state.auth.address);
+/* Update menu based on auth state */
+function updateMenuAuthState() {
+  var auth = store.state.auth;
+  var isConnected = auth.address && auth.verified;
+  var connectText = document.getElementById('menu-account-text');
+  var menuBtn = document.getElementById('menu-account-btn');
+  var walletInfo = document.getElementById('wallet-info');
+  var walletAddress = document.getElementById('wallet-address');
+
+  if (isConnected) {
+    if (connectText) connectText.textContent = 'Cuenta Bittick';
+    if (menuBtn) menuBtn.setAttribute('data-nav', '#/account');
+    if (walletInfo) walletInfo.classList.remove('hidden');
+    if (walletAddress) walletAddress.textContent = truncateAddress(auth.address);
   } else {
-    els['wallet-info'].classList.add('hidden');
+    if (connectText) connectText.textContent = 'Conectar Wallet';
+    if (menuBtn) menuBtn.setAttribute('data-nav', '#/account');
+    if (walletInfo) walletInfo.classList.add('hidden');
   }
 }
 
@@ -600,8 +931,12 @@ function onHashChange() {
   } else if (route === 'settings') {
     loadSettingsData();
     polling.stop();
-  } else if (route === 'login') {
+  } else if (route === 'account') {
     polling.stop();
+    // Render account screen if connected
+    if (store.state.auth.address && store.state.auth.verified) {
+      renderAccountScreen();
+    }
   }
 }
 
@@ -626,6 +961,9 @@ function updateHeader() {
     botInfoEl.innerHTML = '<span style="color:var(--text-muted)">Free Tier</span>';
   }
   renderBtcPrice();
+  // Update header bot image and menu
+  updateHeaderBotImage();
+  updateMenuAuthState();
 }
 
 function renderBtcPrice() {
@@ -1191,8 +1529,15 @@ function setupStoreSubscribers() {
    EVENT LISTENERS
    ============================================ */
 function bindEvents() {
-  els['connect-wallet-btn']?.addEventListener('click', fullLoginFlow);
-  els['retry-btn']?.addEventListener('click', fullLoginFlow);
+  els['retry-btn']?.addEventListener('click', function() {
+    window.location.hash = '#/account';
+  });
+  els['account-close-btn']?.addEventListener('click', function() {
+    window.location.hash = '#/dashboard';
+  });
+  els['account-retry-btn']?.addEventListener('click', function() {
+    window.location.hash = '#/account';
+  });
   els['menu-btn']?.addEventListener('click', openPanel);
   els['panel-close']?.addEventListener('click', closePanel);
   els['backdrop']?.addEventListener('click', closePanel);
@@ -1208,7 +1553,51 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll('.wallet-option').forEach(function(opt) {
+    opt.addEventListener('click', function() {
+      var walletId = opt.dataset.wallet;
+      var statusEl = opt.querySelector('.wallet-option-status');
+      if (statusEl && statusEl.classList.contains('wallet-not-installed')) {
+        var url = walletId === 'unisat' ? 'https://unisat.io/' : 'https://www.xverse.app/';
+        window.open(url, '_blank');
+        return;
+      }
+      fullLoginFlow(walletId);
+    });
+  });
+
   window.addEventListener('hashchange', onHashChange);
+}
+
+function detectWalletUI() {
+  var wallets = detectInstalledWallets();
+  var unisatOpt = document.getElementById('wallet-opt-unisat');
+  var xverseOpt = document.getElementById('wallet-opt-xverse');
+  var unisatStatus = document.getElementById('unisat-status');
+  var xverseStatus = document.getElementById('xverse-status');
+
+  if (unisatOpt && unisatStatus) {
+    if (wallets.unisat) {
+      unisatStatus.textContent = 'Detectada';
+      unisatStatus.classList.remove('wallet-not-installed');
+      unisatOpt.classList.add('wallet-installed');
+    } else {
+      unisatStatus.textContent = 'No instalada — click para instalar';
+      unisatStatus.classList.add('wallet-not-installed');
+      unisatOpt.classList.remove('wallet-installed');
+    }
+  }
+  if (xverseOpt && xverseStatus) {
+    if (wallets.xverse) {
+      xverseStatus.textContent = 'Detectada';
+      xverseStatus.classList.remove('wallet-not-installed');
+      xverseOpt.classList.add('wallet-installed');
+    } else {
+      xverseStatus.textContent = 'No instalada — click para instalar';
+      xverseStatus.classList.add('wallet-not-installed');
+      xverseOpt.classList.remove('wallet-installed');
+    }
+  }
 }
 
 /* ============================================

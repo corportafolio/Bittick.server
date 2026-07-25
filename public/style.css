@@ -332,6 +332,94 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .form-row{display:flex;gap:8px}
 .form-row .form-input{flex:1}
 
+/* --- WALLET SELECTOR --- */
+.wallet-selector{display:flex;flex-direction:column;gap:10px;margin:16px 0;width:100%;max-width:320px;margin-left:auto;margin-right:auto}
+.wallet-option{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);cursor:pointer;transition:all .2s ease}
+.wallet-option:hover{border-color:var(--accent);background:rgba(247,147,26,.06)}
+.wallet-option.wallet-installed{border-color:var(--accent)}
+.wallet-option-icon{flex-shrink:0}
+.wallet-option-icon img,.wallet-option-icon svg{display:block}
+.wallet-option-info{display:flex;flex-direction:column;gap:2px}
+.wallet-option-name{font-weight:600;font-size:.95rem;color:var(--text-primary)}
+.wallet-option-status{font-size:.75rem;color:var(--text-secondary);transition:color .2s}
+.wallet-option-status.wallet-not-installed{color:var(--accent);font-style:italic}
+
+/* --- ACCOUNT SCREEN --- */
+.account-screen{display:flex;flex-direction:column;gap:12px;padding:16px}
+.account-header{display:flex;justify-content:space-between;align-items:center;padding:0 4px}
+.account-header h2{font-size:1.1rem;font-weight:700;color:var(--text-primary)}
+.btn-close{width:32px;height:32px;border-radius:50%;background:var(--surface-2);color:var(--text-secondary);font-size:1.2rem;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.btn-close:hover{background:var(--accent);color:#000}
+
+/* Wallet Selector Section */
+.wallet-selector-section{display:flex;justify-content:center;padding:20px 16px}
+
+/* Wallet Card (Burbuja 1) */
+.account-wallet-card{background:var(--surface-1);border:1px solid var(--accent);border-radius:var(--radius);padding:16px}
+.wallet-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.wallet-card-title{font-size:.85rem;font-weight:600;color:var(--text-primary)}
+.wallet-card-badge{font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:var(--radius-xs);text-transform:uppercase;letter-spacing:.3px}
+.wallet-card-badge.premium{background:var(--accent);color:#000}
+.wallet-card-badge.free{background:var(--surface-3);color:var(--text-secondary)}
+.wallet-card-bot{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:8px;background:var(--bg);border-radius:var(--radius-sm)}
+.wallet-card-bot-img{width:36px;height:36px;border-radius:50%;border:2px solid var(--accent);object-fit:cover}
+.wallet-card-bot-img.placeholder{display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--text-muted);font-size:.7rem;font-weight:700}
+.wallet-card-bot-num{font-size:.85rem;font-weight:600;color:var(--accent)}
+.wallet-card-address{font-family:var(--mono);font-size:.75rem;color:var(--text-secondary);margin-bottom:12px;word-break:break-all}
+.account-wallet-card .btn-sm{width:100%}
+
+/* Preview Card (Burbuja 2) */
+.account-preview-card{background:var(--surface-1);border:1px solid var(--accent);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:12px}
+.preview-card-bot{flex-shrink:0}
+.preview-card-bot-img{width:40px;height:40px;border-radius:50%;border:2px solid var(--accent);object-fit:cover}
+.preview-card-bot-img.placeholder{display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--text-muted);font-size:.75rem;font-weight:700}
+.preview-card-info{flex:1;min-width:0}
+.preview-card-bot-num{font-size:.9rem;font-weight:700;color:var(--text-primary);margin-bottom:2px}
+.preview-card-tier{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.preview-card-tier.founder{color:var(--accent)}
+.preview-card-tier.standard{color:var(--text-secondary)}
+.preview-card-actions{display:flex;align-items:center;gap:10px}
+.preview-card-badge{font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:var(--radius-xs);text-transform:uppercase;letter-spacing:.3px}
+.preview-card-badge.premium{background:var(--accent);color:#000}
+.preview-card-badge.free{background:var(--surface-3);color:var(--text-secondary)}
+.preview-card-selected{font-size:.7rem;font-weight:700;color:var(--info);text-transform:uppercase}
+.btn-cyan{background:var(--info);color:#000;font-weight:700;font-size:.7rem;padding:6px 14px;border-radius:var(--radius-xs);transition:all .2s}
+.btn-cyan:hover{background:#00ACC1;transform:scale(1.02)}
+.btn-cyan:disabled{opacity:.6;cursor:not-allowed}
+
+/* Inscription List (Burbuja 3) */
+.account-inscriptions-section{flex:1;min-height:0;display:flex;flex-direction:column}
+.account-inscriptions-header{display:flex;justify-content:space-between;align-items:center;padding:0 4px 8px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.account-inscriptions-header > span:first-child{font-size:.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.5px}
+.inscription-count{font-size:.7rem;color:var(--accent);font-weight:700}
+.account-inscription-list{flex:1;overflow-y:auto;padding-right:4px}
+.account-inscription-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;cursor:pointer;transition:all .2s}
+.account-inscription-item:hover{border-color:var(--accent);background:rgba(247,147,26,.06)}
+.account-inscription-item.selected{background:rgba(247,147,26,.2);border-color:var(--accent)}
+.account-inscription-item.preview{border-color:var(--info);background:rgba(33,150,243,.1)}
+.inscription-item-number{width:28px;height:28px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--text-primary);flex-shrink:0}
+.inscription-item-info{flex:1;min-width:0}
+.inscription-item-name{font-size:.85rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inscription-item-tier{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.inscription-item-tier.founder{color:var(--accent)}
+.inscription-item-tier.standard{color:var(--text-secondary)}
+.inscription-item-check{font-size:.9rem;font-weight:700;color:var(--accent);flex-shrink:0}
+
+/* Header Bot Image */
+.header-bot-image{display:flex;align-items:center;gap:6px;margin-left:8px;padding:0 8px}
+.header-bot-img{width:24px;height:24px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;background:var(--surface-2)}
+#header-bot-num{font-size:.7rem;font-weight:700;color:var(--accent);font-family:var(--mono)}
+
+/* Menu Bot Image */
+#menu-bot-img{width:20px;height:20px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;background:var(--surface-2);margin-left:8px}
+#menu-account-btn{display:flex;align-items:center;gap:10px}
+
+/* Loading / Error */
+.account-loading,.account-error{display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 16px}
+.account-status-text,.account-error-text{font-size:.85rem;color:var(--text-secondary)}
+.account-loading .spinner{width:28px;height:28px;border:3px solid var(--surface-3);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
 /* --- RESPONSIVE --- */
 @media(max-width:1024px){
   #sidebar{display:none}
@@ -339,12 +427,19 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 }
 @media(max-width:768px){
   #header{padding:0 8px;gap:8px}
+  .header-bot-image{margin-left:4px}
+  #header-bot-num{display:none}
   #content{padding:12px}
   #right-panel{width:100%}
   .login-card{padding:24px 16px}
+  .account-screen{padding:12px}
   #chart-container{height:260px}
 }
 @media(max-width:480px){
   .two-col-grid{grid-template-columns:1fr}
   .panel-card{padding:12px}
+  .account-wallet-card{padding:12px}
+  .account-preview-card{padding:10px 12px}
+  .preview-card-bot-img{width:32px;height:32px}
+  .wallet-card-bot-img{width:32px;height:32px}
 }

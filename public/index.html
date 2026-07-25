@@ -7,7 +7,7 @@
   <meta name="description" content="Bittick - Bitcoin Ordinals Trading Intelligence Platform">
   <meta name="theme-color" content="#0D0D0D">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23F7931A'/><text x='16' y='22' text-anchor='middle' font-size='18' fill='white' font-weight='bold'>B</text></svg>">
-  <link rel="stylesheet" href="style.css?v=2.2.0">
+  <link rel="stylesheet" href="style.css?v=2.3.0">
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -16,13 +16,17 @@
     <!-- TOAST CONTAINER -->
     <div id="toast-container"></div>
 
-    <!-- HEADER (siempre visible) -->
+<!-- HEADER (siempre visible) -->
     <header id="header">
       <button id="menu-btn" class="icon-btn" aria-label="Menu">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
       <div id="logo" class="header-logo">
         <svg width="100" height="24" viewBox="0 0 100 24"><text x="0" y="19" fill="#F7931A" font-size="20" font-weight="700" font-family="system-ui,sans-serif">bittick</text></svg>
+      </div>
+      <div id="header-bot-image" class="header-bot-image hidden">
+        <img id="header-bot-img" src="" alt="Bot" width="24" height="24">
+        <span id="header-bot-num"></span>
       </div>
       <span id="bot-info" class="header-bot-info"></span>
       <span id="btc-price" class="header-btc-price">---</span>
@@ -45,9 +49,10 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           Ajustes
         </button>
-        <button class="panel-nav-btn" data-nav="#/login" id="menu-connect-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          <span id="menu-connect-text">Conectar Wallet</span>
+        <button class="panel-nav-btn" data-nav="#/account" id="menu-account-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span id="menu-account-text">Cuenta Bittick</span>
+          <img id="menu-bot-img" src="" alt="Bot" class="hidden" width="20" height="20">
         </button>
         <div id="wallet-info" class="hidden">
           <div class="panel-wallet-address">
@@ -78,43 +83,98 @@
           <div class="skeleton-card"></div>
           <div class="skeleton-card"></div>
           <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
         </div>
       </aside>
 
       <!-- CONTENIDO PRINCIPAL -->
       <main id="content">
 
-        <!-- LOGIN VIEW (dentro de content, reemplaza dashboard) -->
-        <section id="login-view" class="hidden">
-          <div class="login-card">
-            <div class="login-logo">
-              <svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="16" fill="#F7931A"/><text x="40" y="52" text-anchor="middle" font-size="40" fill="white" font-weight="700" font-family="system-ui,sans-serif">B</text></svg>
+        <!-- ACCOUNT VIEW (reemplaza login-view) -->
+        <section id="account-view" class="hidden">
+          <!-- Wallet Selector (solo si no hay sesión) -->
+          <div id="wallet-selector-section" class="wallet-selector-section">
+            <div class="login-card">
+              <div class="login-logo">
+                <svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="16" fill="#F7931A"/><text x="40" y="52" text-anchor="middle" font-size="40" fill="white" font-weight="700" font-family="system-ui,sans-serif">B</text></svg>
+              </div>
+              <h1 class="login-title">Bittick</h1>
+              <p class="login-subtitle">Elegí tu wallet</p>
+              <p class="login-desc">Necesitás una wallet Bitcoin con una inscripción Bittick Agent para acceder a funciones premium.</p>
+
+              <div id="wallet-selector" class="wallet-selector">
+                <div class="wallet-option" id="wallet-opt-unisat" data-wallet="unisat">
+                  <div class="wallet-option-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#F7931A"/><text x="16" y="22" text-anchor="middle" font-size="16" fill="white" font-weight="700" font-family="system-ui,sans-serif">U</text></svg>
+                  </div>
+                  <div class="wallet-option-info">
+                    <span class="wallet-option-name">UniSat</span>
+                    <span class="wallet-option-status" id="unisat-status">Detectando...</span>
+                  </div>
+                </div>
+                <div class="wallet-option" id="wallet-opt-xverse" data-wallet="xverse">
+                  <div class="wallet-option-icon">
+                    <svg width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#3B82F6"/><text x="16" y="22" text-anchor="middle" font-size="16" fill="white" font-weight="700" font-family="system-ui,sans-serif">X</text></svg>
+                  </div>
+                  <div class="wallet-option-info">
+                    <span class="wallet-option-name">Xverse</span>
+                    <span class="wallet-option-status" id="xverse-status">Detectando...</span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="login-loading" class="hidden">
+                <div class="spinner"></div>
+                <span id="login-status" class="login-status-text"></span>
+              </div>
+              <div id="login-error" class="hidden">
+                <div class="error-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F44336" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
+                <span id="login-error-msg" class="login-error-text"></span>
+                <button id="retry-btn" class="btn btn-secondary">Reintentar</button>
+              </div>
+              <p class="login-info">Las inscripciones Bittick Agent son NFTs en Bitcoin (Ordinals). Cada una desbloquea un bot con tier FOUNDER o STANDARD.</p>
             </div>
-            <h1 class="login-title">Bittick</h1>
-            <p class="login-subtitle">Conecta tu wallet UniSat</p>
-            <p class="login-desc">Necesitas una wallet UniSat con una inscripcion Bittick Agent para acceder a funciones premium.</p>
-            <button id="connect-wallet-btn" class="btn btn-primary btn-lg">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              CONECTAR WALLET
-            </button>
-            <div id="login-loading" class="hidden">
+          </div>
+
+          <!-- Account Screen (solo si hay sesión o después de conectar) -->
+          <div id="account-screen" class="account-screen hidden">
+            <div class="account-header">
+              <h2>Cuenta Bittick</h2>
+              <button id="account-close-btn" class="btn-close" aria-label="Cerrar">✕</button>
+            </div>
+
+            <!-- Burbuja 1: Wallet Conectada -->
+            <div id="wallet-card" class="account-wallet-card"></div>
+
+            <!-- Burbuja 2: Preview temporal (condicional) -->
+            <div id="preview-card" class="account-preview-card hidden"></div>
+
+            <!-- Burbuja 3: Lista de Inscripciones -->
+            <div class="account-inscriptions-section">
+              <div class="account-inscriptions-header">
+                <span>Seleccionar inscripción</span>
+                <span id="inscription-count" class="inscription-count"></span>
+              </div>
+              <div id="inscription-list" class="account-inscription-list"></div>
+            </div>
+
+            <!-- Loading / Error -->
+            <div id="account-loading" class="account-loading hidden">
               <div class="spinner"></div>
-              <span id="login-status" class="login-status-text"></span>
+              <span id="account-status" class="account-status-text"></span>
             </div>
-            <div id="login-error" class="hidden">
+            <div id="account-error" class="account-error hidden">
               <div class="error-icon">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F44336" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
               </div>
-              <span id="login-error-msg" class="login-error-text"></span>
-              <button id="retry-btn" class="btn btn-secondary">Reintentar</button>
+              <span id="account-error-msg" class="account-error-text"></span>
+              <button id="account-retry-btn" class="btn btn-secondary">Reintentar</button>
             </div>
-            <p class="login-info">Las inscripciones Bittick Agent son NFTs en Bitcoin (Ordinals). Cada una desbloquea un bot con tier FOUNDER o STANDARD.</p>
-          </div>
-          <div id="inscription-select" class="hidden">
-            <h2 class="inscription-title">Selecciona tu bot</h2>
-            <p id="inscription-count" class="inscription-count"></p>
-            <div id="inscription-list"></div>
-            <button id="use-bot-btn" class="btn btn-primary btn-lg" disabled>USAR BOT SELECCIONADO</button>
           </div>
         </section>
 
@@ -177,7 +237,8 @@
 
   <script src="lightweight-charts.standalone.production.js?v=2.2.0"></script>
   <script src="charts.js?v=2.2.0"></script>
-  <script src="app.js?v=2.2.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sats-connect@1.1.1/dist/sats-connect.min.js"></script>
+  <script src="app.js?v=2.3.0"></script>
   <script>
     if('serviceWorker' in navigator){
       window.addEventListener('load', function(){
