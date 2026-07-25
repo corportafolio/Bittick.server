@@ -4,6 +4,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { getBotByNum, getBotByInscriptionId, hasInscriptionId, getTier } = require('./bittickCollection');
 const logger = require('../logger/logger');
+const bitcoinMessage = require('bitcoinjs-message');
+const { Verifier } = require('bip322-js');
 
 const router = express.Router();
 
@@ -15,7 +17,7 @@ function generateNonce() {
 }
 
 function storeNonce(address, nonce) {
-  NONCE_STORE.set(address.toLowerCase(), { nonce, expiresAt: Date.now() + NONCE_TTL_MS });
+  NONCE_STORE.set(address.toLowerCase(), { nonce, message: 'Conectar a Bittick', expiresAt: Date.now() + NONCE_TTL_MS });
 }
 
 function validateAndConsumeNonce(address, nonce) {
@@ -31,24 +33,30 @@ function validateAndConsumeNonce(address, nonce) {
   return true;
 }
 
-const verifyMessageSignature = (address, message, signature) => {
+function verifyBitcoinSignature(address, message, signature) {
   try {
-    const bitcoinMessage = require('bitcoinjs-message');
-    return bitcoinMessage.verify(message, address, signature);
+    if (bitcoinMessage.verify(message, address, signature)) {
+      return true;
+    }
   } catch (e) {
-    logger.error('auth', 'Signature verification error: ' + e.message);
+  }
+  try {
+    const { Verifier } = require('bip322-js');
+    return Verifier.verifySignature(address, message, signature, false);
+  } catch (e) {
+    logger.error('auth', 'BIP-322 verification error: ' + e.message);
     return false;
   }
-};
+}
 
 async function findAllBittickInscriptions(address) {
   try {
-    const ordinalsUrl = `https://ordinals.com/address/${address}`;
+    const ordinalsUrl = 'https://ordinals.com/address/' + address;
     const response = await fetch(ordinalsUrl, {
       headers: { 'User-Agent': 'Bittick-Server/1.0' }
     });
     if (!response.ok) {
-      logger.warn('auth', `ordinals.com error: ${response.status} for address ${address}`);
+      logger.warn('auth', 'ordinals.com error: ' + response.status + ' for address ' + address);
       return { verified: false, inscriptions: [], error: 'API_ERROR' };
     }
     const html = await response.text();
@@ -66,7 +74,7 @@ async function findAllBittickInscriptions(address) {
           num: bot.num,
           inscriptionId: userId,
           tier: bot.tier,
-          botImageUrl: `/api/auth/bot-image/${bot.num.toString().padStart(2, '0')}`
+          botImageUrl: '/api/auth/bot-image/' + bot.num.toString().padStart(2, '0')
         });
       }
     }
@@ -75,7 +83,7 @@ async function findAllBittickInscriptions(address) {
     }
     return { verified: true, inscriptions: found, error: null };
   } catch (e) {
-    logger.error('auth', `Wallet verification failed: ${e.message}`);
+    logger.error('auth', 'Wallet verification failed: ' + e.message);
     return { verified: false, inscriptions: [], error: 'VERIFICATION_FAILED' };
   }
 }
@@ -102,8 +110,9 @@ router.post('/verify-wallet', async (req, res) => {
       if (!validateAndConsumeNonce(address, nonce)) {
         return res.status(400).json({ exito: false, error: 'Invalid or expired nonce' });
       }
-      const sigValid = verifyMessageSignature(address, message, signature);
+      const sigValid = verifyBitcoinSignature(address, message, signature);
       if (!sigValid) {
+        logger.error('auth', 'Invalid signature for ' + address + ' (taproot: ' + address.startsWith('bc1p') + ')');
         return res.status(401).json({ exito: false, error: 'Invalid signature' });
       }
     }
@@ -132,11 +141,11 @@ router.post('/verify-wallet', async (req, res) => {
         selectedBotNum: selected.num,
         tier: selected.tier,
         botImageUrl: selected.botImageUrl,
-        message: `${ownership.inscriptions.length} Bittick Agent(s) verificado(s)`
+        message: ownership.inscriptions.length + ' Bittick Agent(s) verificado(s)'
       }
     });
   } catch (e) {
-    logger.error('auth', `Verify wallet error: ${e.message}`);
+    logger.error('auth', 'Verify wallet error: ' + e.message);
     res.status(500).json({ exito: false, error: 'Internal server error' });
   }
 });
@@ -168,11 +177,11 @@ router.post('/select-inscription', async (req, res) => {
         selectedInscriptionId: match.inscription_id,
         selectedBotNum: match.bot_num,
         tier: match.tier,
-        botImageUrl: `/api/auth/bot-image/${match.bot_num.toString().padStart(2, '0')}`
+        botImageUrl: '/api/auth/bot-image/' + match.bot_num.toString().padStart(2, '0')
       }
     });
   } catch (e) {
-    logger.error('auth', `Select inscription error: ${e.message}`);
+    logger.error('auth', 'Select inscription error: ' + e.message);
     res.status(500).json({ exito: false, error: 'Internal server error' });
   }
 });
@@ -198,7 +207,7 @@ router.get('/fetch-inscriptions', async (req, res) => {
       }
     });
   } catch (e) {
-    logger.error('auth', `Fetch inscriptions error: ${e.message}`);
+    logger.error('auth', 'Fetch inscriptions error: ' + e.message);
     res.status(500).json({ exito: false, error: 'Internal server error' });
   }
 });
@@ -220,7 +229,7 @@ router.get('/wallet-inscriptions', async (req, res) => {
           inscriptionId: i.inscription_id,
           tier: i.tier,
           isSelected: i.selected === 1,
-          botImageUrl: `/api/auth/bot-image/${i.bot_num.toString().padStart(2, '0')}`
+          botImageUrl: '/api/auth/bot-image/' + i.bot_num.toString().padStart(2, '0')
         })),
         selectedInscriptionId: selected ? selected.inscription_id : null,
         selectedBotNum: selected ? selected.bot_num : null,
@@ -228,7 +237,7 @@ router.get('/wallet-inscriptions', async (req, res) => {
       }
     });
   } catch (e) {
-    logger.error('auth', `Get wallet inscriptions error: ${e.message}`);
+    logger.error('auth', 'Get wallet inscriptions error: ' + e.message);
     res.status(500).json({ exito: false, error: 'Internal server error' });
   }
 });
@@ -242,7 +251,7 @@ router.get('/bot-image/:num', (req, res) => {
   if (!bot) {
     return res.status(404).json({ exito: false, error: 'Bot no encontrado' });
   }
-  const imagePath = path.join(__dirname, '../../public/bots', `bot_${num.toString().padStart(2, '0')}.png`);
+  const imagePath = path.join(__dirname, '../../public/bots', 'bot_' + num.toString().padStart(2, '0') + '.png');
   if (!fs.existsSync(imagePath)) {
     return res.status(404).json({ exito: false, error: 'Imagen no disponible' });
   }
@@ -269,7 +278,7 @@ router.get('/verify-status', async (req, res) => {
             inscriptionId: i.inscription_id,
             tier: i.tier,
             isSelected: i.selected === 1,
-            botImageUrl: `/api/auth/bot-image/${i.bot_num.toString().padStart(2, '0')}`
+            botImageUrl: '/api/auth/bot-image/' + i.bot_num.toString().padStart(2, '0')
           })),
           selectedInscriptionId: null,
           selectedBotNum: null,
@@ -291,12 +300,12 @@ router.get('/verify-status', async (req, res) => {
         inscriptionId: i.inscription_id,
         tier: i.tier,
         isSelected: i.selected === 1,
-        botImageUrl: `/api/auth/bot-image/${i.bot_num.toString().padStart(2, '0')}`
+        botImageUrl: '/api/auth/bot-image/' + i.bot_num.toString().padStart(2, '0')
       })),
       selectedInscriptionId: owner.inscription_id,
       selectedBotNum: owner.bot_num,
       tier: owner.tier,
-      botImageUrl: `/api/auth/bot-image/${owner.bot_num.toString().padStart(2, '0')}`,
+      botImageUrl: '/api/auth/bot-image/' + owner.bot_num.toString().padStart(2, '0'),
       verifiedAt: owner.verified_at
     }
   });
