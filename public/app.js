@@ -242,7 +242,9 @@ function getNonce(address) {
 
 function signMessage(walletId, message, address) {
   if (walletId === 'unisat') {
-    return window.unisat.signMessage(message);
+    // Detect Taproot (bc1p) and use BIP-322 simple format
+    const sigType = address.startsWith('bc1p') ? 'bip322-simple' : 'ecdsa';
+    return window.unisat.signMessage(message, sigType);
   }
   if (walletId === 'xverse') {
     return new Promise(function(resolve, reject) {

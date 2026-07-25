@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'bittick-server',
-      cwd: '/home/candela/bittick-server',
+      cwd: '/root/bittick-server',
       script: 'index.js',
       instances: 1,
       autorestart: true,
