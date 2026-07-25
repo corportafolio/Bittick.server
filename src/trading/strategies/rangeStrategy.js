@@ -37,12 +37,14 @@ function evaluate(klines, currentPrice) {
   if (distanceToResistance < 2 && sma20 && currentPrice > sma20) {
     const score = Math.min(10, Math.max(1, Math.round(((2 - distanceToResistance) / 2) * 5 + 3)));
     if (score < 4) return null;
+    const entryLow = resistance * 0.99;
+    const shortTarget = Math.min(support, entryLow * 0.98);
     return {
       strategyType: 'short',
       asset: 'BTCUSDT',
       currentPrice,
-      entryZone: `${(resistance * 0.99).toFixed(1)} - ${(resistance * 1.01).toFixed(1)}`,
-      target: support,
+      entryZone: `${entryLow.toFixed(1)} - ${(resistance * 1.01).toFixed(1)}`,
+      target: shortTarget,
       stopLoss: resistance * 1.03,
       score,
       signals: { type: 'range_short', support: support.toFixed(1), resistance: resistance.toFixed(1), distanceToResistance: distanceToResistance.toFixed(2), rangePercent: rangePercent.toFixed(2) }

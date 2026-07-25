@@ -32,16 +32,19 @@ function evaluate(klines, currentPrice) {
   if (volumeHigh) score += 1;
   const normalizedScore = Math.min(10, Math.round((score / 7) * 10));
 
-  return {
-    strategyType: 'short',
-    asset: 'BTCUSDT',
-    currentPrice,
-    entryZone: `${(fib.level236 * 0.99).toFixed(1)} - ${(fib.level236 * 1.01).toFixed(1)}`,
-    target: fib.level500 != null ? fib.level500 : currentPrice * 0.95,
-    stopLoss: high * 1.03,
-    score: normalizedScore,
-    signals: { risePercent: risePercent.toFixed(2), rsi: currentRSI.toFixed(1), distanceFromSma: distanceFromSma.toFixed(2), fibLevel236: fib.level236.toFixed(1), fibLevel500: fib.level500?.toFixed(1) }
-  };
+    const entryLow = fib.level236 * 0.99;
+    const fibTarget = fib.level500 != null ? fib.level500 : currentPrice * 0.95;
+    const shortTarget = Math.min(fibTarget, entryLow * 0.98);
+    return {
+      strategyType: 'short',
+      asset: 'BTCUSDT',
+      currentPrice,
+      entryZone: `${entryLow.toFixed(1)} - ${(fib.level236 * 1.01).toFixed(1)}`,
+      target: shortTarget,
+      stopLoss: high * 1.03,
+      score: normalizedScore,
+      signals: { risePercent: risePercent.toFixed(2), rsi: currentRSI.toFixed(1), distanceFromSma: distanceFromSma.toFixed(2), fibLevel236: fib.level236.toFixed(1), fibLevel500: fib.level500?.toFixed(1) }
+    };
 }
 
 module.exports = { evaluate };

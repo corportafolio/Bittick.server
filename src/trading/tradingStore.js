@@ -690,9 +690,9 @@ function getTradingZones(limit = 100) {
 function getSmartZones(currentPrice) {
   const seen = new Set();
   const zones = [];
-  const types = ['compra', 'venta', 'deuda', 'demanda'];
+  const validTypes = ['compra', 'venta', 'deuda', 'demanda'];
 
-  for (const type of types) {
+  for (const type of validTypes) {
     const result = db.exec(
       `SELECT id, date, type, start_price, end_price, color FROM trading_zones WHERE type = '${type}' ORDER BY date DESC LIMIT 5`
     );
@@ -706,9 +706,10 @@ function getSmartZones(currentPrice) {
     }
   }
 
-  if (currentPrice && currentPrice > 0) {
+  const price = parseFloat(currentPrice);
+  if (price && price > 0) {
     const result = db.exec(
-      `SELECT id, date, type, start_price, end_price, color FROM trading_zones ORDER BY ABS((start_price + end_price) / 2 - ${currentPrice}) ASC LIMIT 1`
+      `SELECT id, date, type, start_price, end_price, color FROM trading_zones ORDER BY ABS((start_price + end_price) / 2 - ${price}) ASC LIMIT 1`
     );
     if (result[0] && result[0].values[0]) {
       const r = result[0].values[0];

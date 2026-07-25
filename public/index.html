@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bittick | Bitcoin Trading Intelligence</title>
+  <meta name="description" content="Bittick - Bitcoin Ordinals Trading Intelligence Platform">
+  <meta name="theme-color" content="#0D0D0D">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23F7931A'/><text x='16' y='22' text-anchor='middle' font-size='18' fill='white' font-weight='bold'>B</text></svg>">
+  <link rel="stylesheet" href="style.css?v=2.2.0">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <div id="app">
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container"></div>
+
+    <!-- HEADER (siempre visible) -->
+    <header id="header">
+      <button id="menu-btn" class="icon-btn" aria-label="Menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div id="logo" class="header-logo">
+        <svg width="100" height="24" viewBox="0 0 100 24"><text x="0" y="19" fill="#F7931A" font-size="20" font-weight="700" font-family="system-ui,sans-serif">bittick</text></svg>
+      </div>
+      <span id="bot-info" class="header-bot-info"></span>
+      <span id="btc-price" class="header-btc-price">---</span>
+      <button id="notif-btn" class="icon-btn" aria-label="Notificaciones">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span id="notif-badge" class="badge hidden"></span>
+      </button>
+    </header>
+
+    <!-- PANEL DERECHO (overlay) -->
+    <div id="right-panel" class="panel-closed">
+      <div class="panel-header">
+        <span>MENU</span>
+        <button id="panel-close" class="icon-btn" aria-label="Cerrar">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <nav class="panel-nav">
+        <button class="panel-nav-btn" data-nav="#/settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Ajustes
+        </button>
+        <button class="panel-nav-btn" data-nav="#/login" id="menu-connect-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span id="menu-connect-text">Conectar Wallet</span>
+        </button>
+        <div id="wallet-info" class="hidden">
+          <div class="panel-wallet-address">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
+            <span id="wallet-address"></span>
+          </div>
+          <button id="disconnect-btn" class="panel-nav-btn danger">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Desconectar
+          </button>
+        </div>
+      </nav>
+    </div>
+    <div id="backdrop" class="hidden"></div>
+
+    <!-- LAYOUT: sidebar + main (siempre visible) -->
+    <div id="main-layout">
+
+      <!-- SIDEBAR: Oportunidades -->
+      <aside id="sidebar">
+        <div id="sidebar-header">
+          <span>Oportunidades</span>
+          <span id="opp-count" class="opp-count-badge"></span>
+        </div>
+        <div id="opportunities-list">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+      </aside>
+
+      <!-- CONTENIDO PRINCIPAL -->
+      <main id="content">
+
+        <!-- LOGIN VIEW (dentro de content, reemplaza dashboard) -->
+        <section id="login-view" class="hidden">
+          <div class="login-card">
+            <div class="login-logo">
+              <svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="16" fill="#F7931A"/><text x="40" y="52" text-anchor="middle" font-size="40" fill="white" font-weight="700" font-family="system-ui,sans-serif">B</text></svg>
+            </div>
+            <h1 class="login-title">Bittick</h1>
+            <p class="login-subtitle">Conecta tu wallet UniSat</p>
+            <p class="login-desc">Necesitas una wallet UniSat con una inscripcion Bittick Agent para acceder a funciones premium.</p>
+            <button id="connect-wallet-btn" class="btn btn-primary btn-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              CONECTAR WALLET
+            </button>
+            <div id="login-loading" class="hidden">
+              <div class="spinner"></div>
+              <span id="login-status" class="login-status-text"></span>
+            </div>
+            <div id="login-error" class="hidden">
+              <div class="error-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F44336" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              </div>
+              <span id="login-error-msg" class="login-error-text"></span>
+              <button id="retry-btn" class="btn btn-secondary">Reintentar</button>
+            </div>
+            <p class="login-info">Las inscripciones Bittick Agent son NFTs en Bitcoin (Ordinals). Cada una desbloquea un bot con tier FOUNDER o STANDARD.</p>
+          </div>
+          <div id="inscription-select" class="hidden">
+            <h2 class="inscription-title">Selecciona tu bot</h2>
+            <p id="inscription-count" class="inscription-count"></p>
+            <div id="inscription-list"></div>
+            <button id="use-bot-btn" class="btn btn-primary btn-lg" disabled>USAR BOT SELECCIONADO</button>
+          </div>
+        </section>
+
+        <!-- DASHBOARD VIEW (siempre visible) -->
+        <section id="dashboard-view">
+          <!-- CHART -->
+          <div id="chart-section">
+            <div id="timeframe-selector" class="timeframe-selector"></div>
+            <div id="chart-container"></div>
+            <div id="chart-info" class="chart-info"></div>
+          </div>
+
+          <!-- POSICIONES: 2 columnas -->
+          <div id="positions-grid" class="two-col-grid">
+            <div id="positions-spot" class="panel-card">
+              <h3 class="panel-card-title">POSICIONES SPOT</h3>
+              <div id="spot-positions-list" class="positions-list">
+                <p class="empty-text">Sin posiciones abiertas</p>
+              </div>
+            </div>
+            <div id="positions-futures" class="panel-card">
+              <h3 class="panel-card-title">POSICIONES FUTUROS</h3>
+              <div id="futures-positions-list" class="positions-list">
+                <p class="empty-text">Sin posiciones abiertas</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- BOT STATUS: 2 columnas -->
+          <div id="bots-grid" class="two-col-grid">
+            <div id="bot-spot-card" class="panel-card">
+              <h3 class="panel-card-title">BOT SPOT</h3>
+              <div id="bot-spot-content" class="bot-status-content">
+                <p class="empty-text">Conecta wallet para activar</p>
+              </div>
+            </div>
+            <div id="bot-futures-card" class="panel-card">
+              <h3 class="panel-card-title">BOT FUTUROS</h3>
+              <div id="bot-futures-content" class="bot-status-content">
+                <p class="empty-text">Conecta wallet para activar</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SETTINGS VIEW -->
+        <section id="settings-view" class="hidden">
+          <div id="settings-content"></div>
+        </section>
+
+      </main>
+    </div>
+
+  </div>
+
+  <!-- MODAL GENERICO -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal-content"></div>
+  </div>
+
+  <script src="lightweight-charts.standalone.production.js?v=2.2.0"></script>
+  <script src="charts.js?v=2.2.0"></script>
+  <script src="app.js?v=2.2.0"></script>
+  <script>
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', function(){
+        navigator.serviceWorker.register('/sw.js?v=5').catch(function(){});
+      });
+    }
+  </script>
+</body>
+</html>

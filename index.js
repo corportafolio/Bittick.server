@@ -1,6 +1,7 @@
 require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const PORT = process.env.PORT || 4001;
 const NODE_ENV = process.env.NODE_ENV || 'production';
@@ -25,6 +26,8 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/trading', tradingRouter);
 app.use('/api/chart', chartRouter);

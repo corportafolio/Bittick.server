@@ -2,8 +2,10 @@ const binance = require('./binanceClient');
 const logger = require('../logger/logger');
 
 function roundQuantity(botType, qty) {
+  const decimals = botType === 'futures' ? 4 : 5;
   const step = botType === 'futures' ? 0.0001 : 0.00001;
-  return Math.floor(qty / step) * step;
+  const rounded = Math.floor(qty / step) * step;
+  return rounded.toFixed(decimals);
 }
 
 async function executeOrder(botType, signal, options = {}) {
@@ -13,7 +15,8 @@ async function executeOrder(botType, signal, options = {}) {
 
   const usdAmount = options.usdAmount || 10;
   const leverage = options.leverage || 1;
-  let orderQuantity = roundQuantity(botType, usdAmount / signal.currentPrice);
+  const leveragedNotional = usdAmount * leverage;
+  let orderQuantity = roundQuantity(botType, leveragedNotional / signal.currentPrice);
 
   const minNotional = botType === 'futures' ? 50 : 5;
   const actualNotional = orderQuantity * signal.currentPrice;
