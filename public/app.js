@@ -590,6 +590,8 @@ function onUseBot(inscriptionId) {
     });
 }
 
+window.onUseBot = onUseBot;
+
 function updateHeaderBotImage() {
   var auth = store.state.auth;
   var botNum = auth.botNum;
