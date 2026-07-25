@@ -12,7 +12,7 @@ var container = null;
 
 function render(containerEl, data, options){
   container = containerEl;
-  if(!container || !window LightweightCharts) return;
+  if(!container || !window.LightweightCharts) return;
 
   if(chart){
     chart.remove();
@@ -131,3 +131,8 @@ function destroy(){
 return { render: render, setData: setData, destroy: destroy };
 
 })();
+
+// Expose LightweightCharts globally for charts.js
+if (typeof window !== 'undefined' && typeof LightweightCharts !== 'undefined') {
+  window.LightweightCharts = LightweightCharts;
+}

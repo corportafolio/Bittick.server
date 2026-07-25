@@ -214,19 +214,18 @@ function connectWallet(walletId) {
   }
   if (walletId === 'xverse') {
     return new Promise(function(resolve, reject) {
-      var Wallet = (window.satsconnect && window.satsconnect.Wallet) || window.Wallet;
-      if (!Wallet) return reject(new Error('sats-connect no está cargado'));
-      Wallet.request('wallet_connect', null).then(function(response) {
-        if (response.status === 'success') {
-          var addrs = response.result.addresses;
-          var ord = addrs.find(function(a) { return a.purpose === 'ordinals'; });
-          var pay = addrs.find(function(a) { return a.purpose === 'payment'; });
-          resolve((ord || pay || addrs[0]).address);
+      var provider = window.XverseProviders && window.XverseProviders['xverse'];
+      if (!provider) return reject(new Error('Xverse no está instalado'));
+      provider.connect().then(function(response) {
+        if (response.addresses && response.addresses.length) {
+          var ord = response.addresses.find(function(a) { return a.purpose === 'ordinals'; });
+          var pay = response.addresses.find(function(a) { return a.purpose === 'payment'; });
+          resolve((ord || pay || response.addresses[0]).address);
         } else {
           reject(new Error('Conexión cancelada por el usuario'));
         }
       }).catch(function(err) {
-        reject(new Error(err.error && err.error.message || 'Error conectando con Xverse'));
+        reject(new Error(err.message || 'Error conectando con Xverse'));
       });
     });
   }
@@ -247,16 +246,16 @@ function signMessage(walletId, message, address) {
   }
   if (walletId === 'xverse') {
     return new Promise(function(resolve, reject) {
-      var Wallet = (window.satsconnect && window.satsconnect.Wallet) || window.Wallet;
-      if (!Wallet) return reject(new Error('sats-connect no está cargado'));
-      Wallet.request('signMessage', { message: message, address: address }).then(function(response) {
-        if (response.status === 'success') {
-          resolve(response.result.signature);
+      var provider = window.XverseProviders && window.XverseProviders['xverse'];
+      if (!provider) return reject(new Error('Xverse no está instalado'));
+      provider.signMessage(message, address).then(function(response) {
+        if (response.signature) {
+          resolve(response.signature);
         } else {
           reject(new Error('Firma cancelada por el usuario'));
         }
       }).catch(function(err) {
-        reject(new Error(err.error && err.error.message || 'Error firmando con Xverse'));
+        reject(new Error(err.message || 'Error firmando con Xverse'));
       });
     });
   }
@@ -883,9 +882,9 @@ function showView(view) {
   var isDashboard = view === 'dashboard';
   var isSettings = view === 'settings';
 
-  els['account-view'].classList.toggle('hidden', !isAccount);
-  els['dashboard-view'].classList.toggle('hidden', !isDashboard);
-  els['settings-view'].classList.toggle('hidden', !isSettings);
+  if (els['account-view']) els['account-view'].classList.toggle('hidden', !isAccount);
+  if (els['dashboard-view']) els['dashboard-view'].classList.toggle('hidden', !isDashboard);
+  if (els['settings-view']) els['settings-view'].classList.toggle('hidden', !isSettings);
 
   /* Update menu text based on auth state */
   updateMenuAuthState();
