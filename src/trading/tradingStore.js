@@ -337,10 +337,22 @@ function deleteOpportunity(id) {
 }
 
 function insertPosition(pos) {
+  // Ensure entry_price > 0: fallback chain: entryPrice -> currentPrice -> signal.currentPrice
+  // If all are 0, throw error to prevent invalid position
+  let entryPrice = pos.entryPrice;
+  if (!entryPrice || entryPrice <= 0) {
+    entryPrice = pos.currentPrice;
+  }
+  if (!entryPrice || entryPrice <= 0) {
+    throw new Error('Invalid position: entryPrice and currentPrice are both 0 or invalid');
+  }
+
+  const initialCurrentPrice = (pos.currentPrice && pos.currentPrice > 0) ? pos.currentPrice : entryPrice;
+
   const stmt = db.prepare(`INSERT INTO positions
     (bot_type, strategy_type, asset, entry_price, current_price, quantity, order_id, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, usd_amount, status, pnl, pnl_percent, inscription_id, address)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, 0, ?, ?)`);
-  stmt.run([pos.botType, pos.strategyType, pos.asset, pos.entryPrice, pos.entryPrice,
+  stmt.run([pos.botType, pos.strategyType, pos.asset, entryPrice, initialCurrentPrice,
     pos.quantity, pos.orderId || null, pos.target || null, pos.stopLoss || null,
     pos.score || 0, pos.confidence || 0, pos.explanation || '',
     JSON.stringify(pos.factors || []), JSON.stringify(pos.risks || []),
@@ -387,7 +399,13 @@ function getPositionById(id) {
 }
 
 function updatePositionPrice(id, currentPrice, pnl) {
-  if (currentPrice && pnl !== undefined) {
+  if (!currentPrice) return;
+
+  // Check if entry_price is 0 and backfill with first real price
+  const pos = getPositionById(id);
+  if (pos && (!pos.entry_price || pos.entry_price === 0)) {
+    db.run("UPDATE positions SET entry_price = ?, current_price = ? WHERE id = ?", [currentPrice, currentPrice, id]);
+  } else if (currentPrice && pnl !== undefined) {
     db.run("UPDATE positions SET current_price = ?, pnl = ?, pnl_percent = ? WHERE id = ?",
       [currentPrice, pnl.pnl, pnl.pnlPercent, id]);
   } else if (currentPrice) {

@@ -27,15 +27,27 @@ function render(containerEl, data, options){
   var downColor = opts.downColor || '#F44336';
 
   var containerWidth = container.clientWidth || container.offsetWidth || 340;
-  if (containerWidth === 0) {
-    console.warn('Chart container has 0 width, deferring render');
+  var containerHeight = container.clientHeight || container.offsetHeight || 340;
+
+  // Defer if container not ready
+  if (containerWidth === 0 || containerHeight === 0) {
+    console.warn('Chart container not ready (0 size), deferring render');
+    requestAnimationFrame(function() { render(containerEl, data, options); });
     return;
   }
+
+  // Validate data before creating chart
+  if (!data || !data.length) {
+    console.warn('No chart data provided');
+    return;
+  }
+
+  console.log('Rendering chart with', data.length, 'candles, container:', containerWidth, 'x', containerHeight);
 
   try {
     chart = LightweightCharts.createChart(container, {
       width: containerWidth,
-      height: container.clientHeight || 340,
+      height: containerHeight,
       layout: {
         background: { color: '#1A1A1A' },
         textColor: '#999999',
@@ -57,7 +69,9 @@ function render(containerEl, data, options){
       timeScale: {
         borderColor: '#2A2A2A',
         timeVisible: true,
-        secondsVisible: false
+        secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true
       },
       handleScale: { axisPressedMouseMove: true },
       handleScroll: { mouseWheel: true, pressedMouseMove: true }
@@ -95,9 +109,9 @@ function render(containerEl, data, options){
     });
     ro.observe(container);
   } catch (e) {
-    console.error('Chart render error:', e);
+    console.error('Chart render error:', e, e.stack);
     if (containerEl) {
-      containerEl.innerHTML = '<div class="chart-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--text-muted);font-size:.85rem;gap:8px">Error cargando gráfico</div>';
+      containerEl.innerHTML = '<div class="chart-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--text-muted);font-size:.85rem;gap:8px">Error cargando gráfico: ' + e.message + '</div>';
     }
   }
 }
@@ -107,11 +121,18 @@ function setData(data){
 
   var candles = [];
   var volumes = [];
+  var invalidCount = 0;
 
   for(var i = 0; i < data.length; i++){
     var d = data[i];
     var t = d.openTime || d.time || 0;
     var ts = Math.floor(t / 1000);
+
+    if (!ts || ts <= 0) {
+      console.warn('Invalid timestamp at index', i, d);
+      invalidCount++;
+      continue;
+    }
 
     var o = parseFloat(d.open);
     var h = parseFloat(d.high);
@@ -119,7 +140,11 @@ function setData(data){
     var c = parseFloat(d.close);
     var v = parseFloat(d.volume);
 
-    if(isNaN(o) || isNaN(h) || isNaN(l) || isNaN(c)) continue;
+    if(isNaN(o) || isNaN(h) || isNaN(l) || isNaN(c) || o <= 0 || h <= 0 || l <= 0 || c <= 0) {
+      console.warn('Invalid OHLC at index', i, d);
+      invalidCount++;
+      continue;
+    }
 
     candles.push({ time: ts, open: o, high: h, low: l, close: c });
 
@@ -128,10 +153,20 @@ function setData(data){
     volumes.push({ time: ts, value: v, color: volColor });
   }
 
-  candleSeries.setData(candles);
-  volumeSeries.setData(volumes);
+  if (candles.length === 0) {
+    console.error('No valid candles after validation, invalid:', invalidCount);
+    return;
+  }
 
-  chart.timeScale().fitContent();
+  console.log('Setting chart data:', candles.length, 'valid candles, invalid:', invalidCount);
+
+  try {
+    candleSeries.setData(candles);
+    volumeSeries.setData(volumes);
+    chart.timeScale().fitContent();
+  } catch (e) {
+    console.error('setData error:', e, e.stack);
+  }
 }
 
 function destroy(){
