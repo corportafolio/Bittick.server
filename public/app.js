@@ -1322,7 +1322,7 @@ function renderPositionItem(p) {
       html += '<div class="price-item"><span class="price-label">Stop</span><span class="price-value stop">' + stopPriceFmt + '</span></div>';
     }
     if (type === 'spot') {
-      html += '<div class="price-item"><span class="price-label">Stop</span><span class="price-value spot-warning">⚠ Sin stop. Cierre manual</span></div>';
+      html += '<div class="price-item"><span class="price-label"></span><span class="price-value spot-warning">⚠ Sin stop. Cierre manual</span></div>';
     }
   } else {
     var closedPriceFmt = p.current_price ? formatPrice(p.current_price) : currentPriceFmt;
