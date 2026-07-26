@@ -1288,16 +1288,16 @@ function renderPositionItem(p) {
   var badgeStatusClass = isOpen ? 'badge-open' : 'badge-closed';
   var badgeStatusLabel = isOpen ? '[Abierta]' : '[Cerrada]';
 
-  var entryPriceFmt = entryPrice ? formatPrice(entryPrice) : '—';
-  var currentPriceFmt = currentPrice ? formatPrice(currentPrice) : '—';
-  var targetPriceFmt = targetPrice ? formatPrice(targetPrice) : '—';
-  var stopPriceFmt = stopPrice ? formatPrice(stopPrice) : '—';
+  var entryPriceFmt = entryPrice != null ? formatPrice(entryPrice) : '—';
+  var currentPriceFmt = currentPrice != null ? formatPrice(currentPrice) : '—';
+  var targetPriceFmt = targetPrice != null ? formatPrice(targetPrice) : '—';
+  var stopPriceFmt = stopPrice != null ? formatPrice(stopPrice) : '—';
   var investedUsdtFmt = investedUsdt != null ? parseFloat(investedUsdt).toFixed(2) : '—';
   var score = p.score != null ? p.score : '—';
   var confidence = p.confidence != null ? p.confidence : '—';
 
-  var openedAt = p.opened_at ? formatDateTimeLocal(p.opened_at) : '—';
-  var closedAt = p.closed_at ? formatDateTimeLocal(p.closed_at) : '—';
+  var openedAt = p.opened_at != null ? formatDateTimeLocal(p.opened_at) : '—';
+  var closedAt = p.closed_at != null ? formatDateTimeLocal(p.closed_at) : '—';
 
   var html = '<div class="position-card">' +
     '<div class="position-header">' +
