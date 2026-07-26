@@ -724,7 +724,7 @@ function getSmartZones(currentPrice) {
 
 function cleanOldZones() {
   const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 2);
   const cutoff = oneYearAgo.toISOString().split('T')[0];
   db.run('DELETE FROM trading_zones WHERE date < ?', [cutoff]);
   save();
