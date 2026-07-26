@@ -16,7 +16,8 @@ var TF_OPTIONS = [
   { label: '1M', value: '1m' }, { label: '5M', value: '5m' },
   { label: '15M', value: '15m' }, { label: '30M', value: '30m' },
   { label: '1H', value: '1h' }, { label: '4H', value: '4h' },
-  { label: '1D', value: '1d' }
+  { label: '1D', value: '1d' }, { label: '1S', value: '1w' },
+  { label: '1ME', value: '1M' }
 ];
 
 /* --- STATE --- */
@@ -43,6 +44,7 @@ var store = {
       klines: [],
       klinesType: 'spot',
       klinesInterval: '15m',
+      tradingZones: [],
       loading: false,
       error: null,
       lastUpdate: null
@@ -90,6 +92,9 @@ var store = {
         break;
       case 'SET_KLINES':
         s.trading.klines = payload;
+        break;
+      case 'SET_TRADING_ZONES':
+        s.trading.tradingZones = payload;
         break;
       case 'SET_SETTINGS':
         Object.assign(s.settings, payload);
@@ -1013,14 +1018,46 @@ function loadChart() {
 
   var interval = store.state.trading.klinesInterval;
   var type = store.state.trading.klinesType;
-  api.get('/api/chart/klines?interval=' + interval + '&limit=200&type=' + type, false)
+  api.get('/api/chart/klines?interval=' + interval + '&limit=500&type=' + type, false)
     .then(function(json) {
       if (json.exito && json.data) {
         store.dispatch('SET_KLINES', json.data);
         renderChart(json.data);
+        loadTradingZones();
       }
     })
     .catch(function(e) { console.error('Chart error:', e); });
+}
+
+function updateChart() {
+  var interval = store.state.trading.klinesInterval;
+  var type = store.state.trading.klinesType;
+  api.get('/api/chart/klines?interval=' + interval + '&limit=500&type=' + type, false)
+    .then(function(json) {
+      if (json.exito && json.data && json.data.length) {
+        var lastKline = json.data[json.data.length - 1];
+        if (typeof BittickChart !== 'undefined' && BittickChart.updateLastCandle) {
+          BittickChart.updateLastCandle(lastKline);
+        }
+        loadTradingZones();
+      }
+    })
+    .catch(function(e) { console.error('Chart update error:', e); });
+}
+
+function loadTradingZones() {
+  var price = store.state.trading.currentPrice;
+  if (!price) return;
+  api.get('/api/chart/trading-zones?price=' + price, false)
+    .then(function(json) {
+      if (json.exito && json.data) {
+        store.dispatch('SET_TRADING_ZONES', json.data);
+        if (typeof BittickChart !== 'undefined' && BittickChart.setTradingZones) {
+          BittickChart.setTradingZones(json.data);
+        }
+      }
+    })
+    .catch(function(e) { console.error('Trading zones error:', e); });
 }
 
 function renderChart(data) {

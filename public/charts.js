@@ -9,6 +9,7 @@ var chart = null;
 var candleSeries = null;
 var volumeSeries = null;
 var container = null;
+var tradingZoneMarkers = [];
 
 function render(containerEl, data, options){
   container = containerEl;
@@ -125,10 +126,93 @@ function destroy(){
     chart = null;
     candleSeries = null;
     volumeSeries = null;
+    tradingZoneMarkers = [];
   }
 }
 
-return { render: render, setData: setData, destroy: destroy };
+function updateLastCandle(kline){
+  if(!chart || !candleSeries || !kline) return;
+
+  var t = Math.floor((kline.openTime || kline.time || 0) / 1000);
+  var o = parseFloat(kline.open);
+  var h = parseFloat(kline.high);
+  var l = parseFloat(kline.low);
+  var c = parseFloat(kline.close);
+  var v = parseFloat(kline.volume);
+
+  if(isNaN(o) || isNaN(h) || isNaN(l) || isNaN(c)) return;
+
+  candleSeries.update({ time: t, open: o, high: h, low: l, close: c });
+
+  var volColor = c >= o ? 'rgba(76,175,80,0.3)' : 'rgba(244,67,54,0.3)';
+  volumeSeries.update({ time: t, value: v, color: volColor });
+}
+
+function drawTradingZone(date, type, startPrice, endPrice, color) {
+  if (!chart) return;
+  var dateParts = date.split('-');
+  var startTime = Math.floor(new Date(
+    parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])
+  ).getTime() / 1000);
+  var endTime = startTime + (30 * 24 * 60 * 60);
+  var top = Math.max(startPrice, endPrice);
+  var bottom = Math.min(startPrice, endPrice);
+  var noScale = function() { return null; };
+
+  var fillSeries = chart.addBaselineSeries({
+    baseValue: { type: 'price', price: bottom },
+    topLineColor: 'transparent',
+    topFillColor1: color + '11',
+    topFillColor2: color + '11',
+    bottomFillColor1: 'transparent',
+    bottomFillColor2: 'transparent',
+    lineWidth: 0,
+    priceLineVisible: false,
+    lastValueVisible: false,
+    crosshairMarkerVisible: false,
+    autoscaleInfoProvider: noScale,
+  });
+  fillSeries.setData([{ time: startTime, value: top }, { time: endTime, value: top }]);
+  tradingZoneMarkers.push(fillSeries);
+
+  var topLine = chart.addLineSeries({
+    color: color, lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lastValueVisible: false, crosshairMarkerVisible: false,
+    autoscaleInfoProvider: noScale,
+  });
+  topLine.setData([{ time: startTime, value: top }, { time: endTime, value: top }]);
+  tradingZoneMarkers.push(topLine);
+
+  var bottomLine = chart.addLineSeries({
+    color: color, lineWidth: 1,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lastValueVisible: false, crosshairMarkerVisible: false,
+    autoscaleInfoProvider: noScale,
+  });
+  bottomLine.setData([{ time: startTime, value: bottom }, { time: endTime, value: bottom }]);
+  tradingZoneMarkers.push(bottomLine);
+}
+
+function setTradingZones(zones) {
+  clearTradingZones();
+  if (!zones || !zones.length) return;
+  for (var i = 0; i < zones.length; i++) {
+    var z = zones[i];
+    drawTradingZone(z.date, z.type, z.start_price, z.end_price, z.color);
+  }
+}
+
+function clearTradingZones() {
+  for (var i = 0; i < tradingZoneMarkers.length; i++) {
+    try { chart.removeSeries(tradingZoneMarkers[i]); } catch(e) {}
+  }
+  tradingZoneMarkers = [];
+}
+
+return { render: render, setData: setData, updateLastCandle: updateLastCandle,
+         setTradingZones: setTradingZones, clearTradingZones: clearTradingZones,
+         destroy: destroy };
 
 })();
 

@@ -690,7 +690,7 @@ function getTradingZones(limit = 100) {
 function getSmartZones(currentPrice) {
   const seen = new Set();
   const zones = [];
-  const validTypes = ['compra', 'venta', 'deuda', 'demanda'];
+  const validTypes = ['compra', 'venta', 'deuda', 'demanda', 'oferta'];
 
   for (const type of validTypes) {
     const result = db.exec(

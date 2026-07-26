@@ -75,11 +75,14 @@ async function signedRequest(type, method, path, params = {}) {
   return data;
 }
 
-async function getKlines(symbol = 'BTCUSDT', interval = '1h', limit = 100, type = 'spot') {
+async function getKlines(symbol = 'BTCUSDT', interval = '1h', limit = 100, type = 'spot', options = {}) {
   const base = getPublicBase(type);
   const prefix = apiPrefix(type);
   const v = type === 'futures' ? 'v1' : 'v3';
-  const { data } = await axios.get(`${base}${prefix}/${v}/klines`, { params: { symbol, interval, limit } });
+  const params = { symbol, interval, limit };
+  if (options.startTime) params.startTime = options.startTime;
+  if (options.endTime) params.endTime = options.endTime;
+  const { data } = await axios.get(`${base}${prefix}/${v}/klines`, { params });
   return data.map(k => ({
     openTime: k[0], open: parseFloat(k[1]), high: parseFloat(k[2]),
     low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5]),
