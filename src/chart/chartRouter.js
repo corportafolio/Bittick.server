@@ -17,7 +17,7 @@ async function getCachedKlines(interval, limit, type) {
   const cached = cache.get(key);
   const now = Date.now();
 
-  if (cached && (now - cached.lastUpdate) < CACHE_TTL) {
+  if (cached && (now - cached.lastUpdate) < CACHE_TTL && cached.klines.length >= limit) {
     return cached.klines.slice(-limit);
   }
 
@@ -31,7 +31,7 @@ async function refreshLatestKlines() {
     try {
       const key = interval + '_spot';
       const cached = cache.get(key);
-      const fresh = await binance.getKlines('BTCUSDT', interval, 5, 'spot');
+      const fresh = await binance.getKlines('BTCUSDT', interval, cached ? 5 : 1000, 'spot');
 
       if (!cached || !cached.klines.length) {
         cache.set(key, { klines: fresh, lastUpdate: Date.now() });
