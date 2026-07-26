@@ -26,94 +26,100 @@ function render(containerEl, data, options){
   var upColor = opts.upColor || '#4CAF50';
   var downColor = opts.downColor || '#F44336';
 
-  var containerWidth = container.clientWidth || container.offsetWidth || 340;
-  var containerHeight = container.clientHeight || container.offsetHeight || 340;
-
-  // Defer if container not ready
-  if (containerWidth === 0 || containerHeight === 0) {
-    console.warn('Chart container not ready (0 size), deferring render');
-    requestAnimationFrame(function() { render(containerEl, data, options); });
-    return;
-  }
-
-  // Validate data before creating chart
-  if (!data || !data.length) {
-    console.warn('No chart data provided');
-    return;
-  }
-
-  console.log('Rendering chart with', data.length, 'candles, container:', containerWidth, 'x', containerHeight);
-
-  try {
-    chart = LightweightCharts.createChart(container, {
-      width: containerWidth,
-      height: containerHeight,
-      layout: {
-        background: { color: '#1A1A1A' },
-        textColor: '#999999',
-        fontSize: 11
-      },
-      grid: {
-        vertLines: { color: '#252525' },
-        horzLines: { color: '#252525' }
-      },
-      crosshair: {
-        mode: LightweightCharts.CrosshairMode.Normal,
-        vertLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' },
-        horzLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' }
-      },
-      rightPriceScale: {
-        borderColor: '#2A2A2A',
-        scaleMargins: { top: 0.1, bottom: 0.25 }
-      },
-      timeScale: {
-        borderColor: '#2A2A2A',
-        timeVisible: true,
-        secondsVisible: false,
-        fixLeftEdge: true,
-        fixRightEdge: true
-      },
-      handleScale: { axisPressedMouseMove: true },
-      handleScroll: { mouseWheel: true, pressedMouseMove: true }
-    });
-
-    candleSeries = chart.addCandlestickSeries({
-      upColor: upColor,
-      downColor: downColor,
-      borderUpColor: upColor,
-      borderDownColor: downColor,
-      wickUpColor: upColor,
-      wickDownColor: downColor
-    });
-
-    volumeSeries = chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
-      priceScaleId: 'volume',
-      color: '#F7931A',
-      scaleMargins: { top: 0.8, bottom: 0 }
-    });
-
-    chart.priceScale('volume').applyOptions({
-      scaleMargins: { top: 0.8, bottom: 0 }
-    });
-
-    setData(data);
-
-    var ro = new ResizeObserver(function(entries){
-      if(chart && entries[0]){
-        chart.applyOptions({
-          width: entries[0].contentRect.width,
-          height: entries[0].contentRect.height
-        });
-      }
-    });
-    ro.observe(container);
-  } catch (e) {
-    console.error('Chart render error:', e, e.stack);
-    if (containerEl) {
-      containerEl.innerHTML = '<div class="chart-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--text-muted);font-size:.85rem;gap:8px">Error cargando gráfico: ' + e.message + '</div>';
+  // Wait for container to have valid dimensions
+  var waitForContainer = function() {
+    var w = container.clientWidth || container.offsetWidth || 0;
+    var h = container.clientHeight || container.offsetHeight || 0;
+    if (w === 0 || h === 0) {
+      console.warn('Chart container not ready (size:', w, 'x', h, '), waiting...');
+      requestAnimationFrame(waitForContainer);
+      return;
     }
-  }
+    doRender(w, h);
+  };
+
+  var doRender = function(containerWidth, containerHeight) {
+    // Validate data before creating chart
+    if (!data || !data.length) {
+      console.warn('No chart data provided');
+      return;
+    }
+
+    console.log('Rendering chart with', data.length, 'candles, container:', containerWidth, 'x', containerHeight);
+
+    try {
+      chart = LightweightCharts.createChart(container, {
+        width: containerWidth,
+        height: containerHeight,
+        layout: {
+          background: { color: '#1A1A1A' },
+          textColor: '#999999',
+          fontSize: 11
+        },
+        grid: {
+          vertLines: { color: '#252525' },
+          horzLines: { color: '#252525' }
+        },
+        crosshair: {
+          mode: LightweightCharts.CrosshairMode.Normal,
+          vertLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' },
+          horzLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' }
+        },
+        rightPriceScale: {
+          borderColor: '#2A2A2A',
+          scaleMargins: { top: 0.1, bottom: 0.25 }
+        },
+        timeScale: {
+          borderColor: '#2A2A2A',
+          timeVisible: true,
+          secondsVisible: false,
+          fixLeftEdge: true,
+          fixRightEdge: true
+        },
+        handleScale: { axisPressedMouseMove: true },
+        handleScroll: { mouseWheel: true, pressedMouseMove: true }
+      });
+
+      candleSeries = chart.addCandlestickSeries({
+        upColor: upColor,
+        downColor: downColor,
+        borderUpColor: upColor,
+        borderDownColor: downColor,
+        wickUpColor: upColor,
+        wickDownColor: downColor
+      });
+
+      volumeSeries = chart.addHistogramSeries({
+        priceFormat: { type: 'volume' },
+        priceScaleId: 'volume',
+        color: '#F7931A',
+        scaleMargins: { top: 0.8, bottom: 0 }
+      });
+
+      chart.priceScale('volume').applyOptions({
+        scaleMargins: { top: 0.8, bottom: 0 }
+      });
+
+      setData(data);
+
+      var ro = new ResizeObserver(function(entries){
+        if(chart && entries[0]){
+          chart.applyOptions({
+            width: entries[0].contentRect.width,
+            height: entries[0].contentRect.height
+          });
+        }
+      });
+      ro.observe(container);
+    } catch (e) {
+      console.error('Chart render error:', e, e.stack);
+      if (containerEl) {
+        containerEl.innerHTML = '<div class="chart-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--text-muted);font-size:.85rem;gap:8px">Error cargando gráfico: ' + e.message + '</div>';
+      }
+    }
+  };
+
+  waitForContainer();
 }
 
 function setData(data){

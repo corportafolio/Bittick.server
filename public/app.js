@@ -1321,6 +1321,9 @@ function renderPositionItem(p) {
     if (type === 'futures' && stopPriceFmt !== '—') {
       html += '<div class="price-item"><span class="price-label">Stop</span><span class="price-value stop">' + stopPriceFmt + '</span></div>';
     }
+    if (type === 'spot') {
+      html += '<div class="price-item"><span class="price-label">Stop</span><span class="price-value spot-warning">⚠ Sin stop. Cierre manual</span></div>';
+    }
   } else {
     var closedPriceFmt = p.current_price ? formatPrice(p.current_price) : currentPriceFmt;
     html +=
@@ -1345,11 +1348,8 @@ function renderPositionItem(p) {
   html += '</div>';
 
   if (isOpen) {
-    var warningHtml = type === 'spot'
-      ? '<div class="spot-warning">⚠ No stop en spot. Cerrar manualmente.</div>'
-      : '';
     var closeBtnId = 'close-pos-' + (p.id || 'unknown');
-    html += warningHtml +
+    html +=
       '<div class="position-actions">' +
         '<button class="btn btn-danger btn-sm" id="' + closeBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '">CERRAR POSICIÓN</button>' +
       '</div>';

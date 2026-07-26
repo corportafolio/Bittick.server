@@ -530,6 +530,7 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 }
 .price-value.target{color:var(--accent)}
 .price-value.stop{color:var(--negative)}
+.price-value.spot-warning{color:#F57C00;font-weight:600}
 .spot-warning{
   font-size:.65rem;
   color:#F57C00;
