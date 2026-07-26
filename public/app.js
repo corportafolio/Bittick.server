@@ -1199,6 +1199,7 @@ function renderSpotPositions() {
     return;
   }
   safeSetHTML(el, positions.map(renderPositionItem).join(''));
+  bindPositionActions(el, 'spot');
 }
 
 function renderFuturesPositions() {
@@ -1210,24 +1211,177 @@ function renderFuturesPositions() {
     return;
   }
   safeSetHTML(el, positions.map(renderPositionItem).join(''));
+  bindPositionActions(el, 'futures');
+}
+
+function bindPositionActions(container, type) {
+  container.querySelectorAll('.position-actions .btn-danger[data-pos-id]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var posId = this.getAttribute('data-pos-id');
+      if (posId) closePosition(posId, type);
+    });
+  });
+  container.querySelectorAll('.position-actions .btn-secondary[data-pos-id]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var posId = this.getAttribute('data-pos-id');
+      if (posId) dismissPosition(posId, type);
+    });
+  });
+}
+
+async function closePosition(posId, type) {
+  var confirmed = window.confirm('¿Cerrar esta posición? Esta acción no se puede deshacer.');
+  if (!confirmed) return;
+  try {
+    var res = await api.post('/api/trading/positions/close', {
+      positionId: posId,
+      type: type
+    }, true);
+    if (res.exito) {
+      toast('Posición cerrada', 'success');
+      loadTradingData();
+    } else {
+      toast('Error: ' + (res.error || 'No se pudo cerrar'), 'error');
+    }
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  }
+}
+
+async function dismissPosition(posId, type) {
+  try {
+    var res = await api.post('/api/trading/positions/dismiss', {
+      positionId: posId,
+      type: type
+    }, true);
+    if (res.exito) {
+      toast('Posición descartada', 'success');
+      loadTradingData();
+    } else {
+      toast('Error: ' + (res.error || 'No se pudo descartar'), 'error');
+    }
+  } catch (e) {
+    toast('Error: ' + e.message, 'error');
+  }
 }
 
 function renderPositionItem(p) {
   var pnl = parseFloat(p.unrealizedProfit || p.pnl || 0);
   var pnlPct = parseFloat(p.unrealizedProfitPercent || p.pnlPct || 0);
   var side = (p.side || 'LONG').toUpperCase();
+  var type = (p.type || 'spot').toLowerCase();
+  var status = p.status || 'open';
+  var isOpen = status !== 'closed';
   var isPos = pnl >= 0;
-  return '<div class="pos-item">' +
-    '<div class="pos-item-left">' +
-      '<span class="pos-item-symbol">' + (p.symbol || '') + '</span>' +
-      '<span class="pos-item-side ' + side.toLowerCase() + '">' + side + '</span>' +
+
+  var badgeTypeClass = type === 'futures' ? (side === 'SHORT' ? 'badge-short' : 'badge-long') : 'badge-spot';
+  var badgeTypeLabel = type === 'futures' ? '[' + side + ']' : '[SPOT]';
+  var badgeStatusClass = isOpen ? 'badge-open' : 'badge-closed';
+  var badgeStatusLabel = isOpen ? '[Abierta]' : '[Cerrada]';
+
+  var entryPrice = p.entryPrice ? formatPrice(p.entryPrice) : '—';
+  var currentPrice = p.currentPrice ? formatPrice(p.currentPrice) : '—';
+  var targetPrice = p.targetPrice ? formatPrice(p.targetPrice) : '—';
+  var stopPrice = p.stopPrice ? formatPrice(p.stopPrice) : '—';
+  var investedUsdt = p.investedUsdt != null ? parseFloat(p.investedUsdt).toFixed(2) : '—';
+  var score = p.score != null ? p.score : '—';
+  var confidence = p.confidence != null ? p.confidence : '—';
+
+  var openedAt = p.openedAt ? formatDateTimeLocal(p.openedAt) : '—';
+  var closedAt = p.closedAt ? formatDateTimeLocal(p.closedAt) : '—';
+
+  var html = '<div class="position-card">' +
+    '<div class="position-header">' +
+      '<span class="badge-type ' + badgeTypeClass + '">' + badgeTypeLabel + '</span>' +
+      '<span class="position-symbol">' + (p.symbol || '') + '</span>' +
+      '<span class="badge-status ' + badgeStatusClass + '">' + badgeStatusLabel + '</span>' +
+      '<span class="position-pnl ' + (isPos ? 'positive' : 'negative') + '" style="margin-left:auto">' + (isPos ? '+' : '') + pnl.toFixed(2) + ' USDT</span>' +
     '</div>' +
-    '<div class="pos-item-right">' +
-      '<span class="pos-item-pnl ' + (isPos ? 'positive' : 'negative') + '">' + (isPos ? '+' : '') + pnl.toFixed(2) + ' USDT</span>' +
-      '<span class="pos-item-pnl-pct">(' + (isPos ? '+' : '') + pnlPct.toFixed(2) + '%)</span>' +
-      '<div class="pos-item-qty">Qty: ' + (p.quantity || p.qty || '0') + '</div>' +
+    '<div class="position-details">' +
+      '<span>Puntaje: ' + score + '/10</span>' +
+      '<span>Confianza: ' + confidence + '/10</span>' +
+      (investedUsdt !== '—' ? '<span>Apostado: $' + investedUsdt + '</span>' : '') +
     '</div>' +
-  '</div>';
+    '<div class="position-prices">';
+
+  if (isOpen) {
+    html +=
+      '<div class="price-item"><span class="price-label">Entrada</span><span class="price-value">' + entryPrice + '</span></div>' +
+      '<div class="price-item"><span class="price-label">Actual</span><span class="price-value">' + currentPrice + '</span></div>' +
+      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPrice + '</span></div>';
+    if (type === 'futures' && stopPrice !== '—') {
+      html += '<div class="price-item"><span class="price-label">Stop</span><span class="price-value stop">' + stopPrice + '</span></div>';
+    }
+  } else {
+    var closedPrice = p.closedPrice ? formatPrice(p.closedPrice) : currentPrice;
+    html +=
+      '<div class="price-item"><span class="price-label">Entrada</span><span class="price-value">' + entryPrice + '</span></div>' +
+      '<div class="price-item"><span class="price-label">Cerrada</span><span class="price-value">' + closedPrice + '</span></div>' +
+      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPrice + '</span></div>';
+  }
+
+  html += '</div>' +
+    '<div class="timestamp-bubbles">';
+
+  if (isOpen) {
+    html +=
+      '<span class="timestamp-bubble"><span class="timestamp-label">Iniciada</span><span class="timestamp-value">' + openedAt + '</span></span>' +
+      '<span class="timestamp-bubble"><span class="timestamp-label">Terminada</span><span class="timestamp-value">' + (closedAt || '—') + '</span></span>';
+  } else {
+    html +=
+      '<span class="timestamp-bubble"><span class="timestamp-label">Iniciada</span><span class="timestamp-value">' + openedAt + '</span></span>' +
+      '<span class="timestamp-bubble"><span class="timestamp-label">Terminada</span><span class="timestamp-value">' + closedAt + '</span></span>';
+  }
+
+  html += '</div>';
+
+  if (isOpen) {
+    var warningHtml = type === 'spot'
+      ? '<div class="spot-warning">⚠ No stop en spot. Cerrar manualmente.</div>'
+      : '';
+    var closeBtnId = 'close-pos-' + (p.id || 'unknown');
+    html += warningHtml +
+      '<div class="position-actions">' +
+        '<button class="btn btn-danger btn-sm" id="' + closeBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '">CERRAR POSICIÓN</button>' +
+      '</div>';
+  } else {
+    var finalPnl = parseFloat(p.realizedPnl || p.pnl || 0);
+    var finalPnlPct = parseFloat(p.realizedPnlPercent || p.pnlPct || 0);
+    var finalPnlPos = finalPnl >= 0;
+    var dismissBtnId = 'dismiss-pos-' + (p.id || 'unknown');
+    html +=
+      '<div class="position-final-pnl ' + (finalPnlPos ? 'positive' : 'negative') + '">PNL: ' + (finalPnlPos ? '+' : '') + finalPnl.toFixed(2) + ' USDT (' + (finalPnlPos ? '+' : '') + finalPnlPct.toFixed(2) + '%)</div>' +
+      '<div class="position-actions">' +
+        '<button class="btn btn-secondary btn-sm" id="' + dismissBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">[🗑] Descartar</button>' +
+      '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function formatPrice(price) {
+  var num = parseFloat(price);
+  if (isNaN(num)) return '—';
+  if (num >= 1000) return num.toLocaleString(undefined, {maximumFractionDigits: 0});
+  if (num >= 1) return num.toLocaleString(undefined, {maximumFractionDigits: 2});
+  return num.toLocaleString(undefined, {maximumFractionDigits: 6});
+}
+
+function formatDateTimeLocal(isoString) {
+  try {
+    var d = new Date(isoString);
+    var day = String(d.getDate()).padStart(2, '0');
+    var month = String(d.getMonth() + 1).padStart(2, '0');
+    var year = d.getFullYear();
+    var hours = String(d.getHours()).padStart(2, '0');
+    var minutes = String(d.getMinutes()).padStart(2, '0');
+    return day + '/' + month + '/' + year + ' ' + hours + ':' + minutes;
+  } catch(e) {
+    return '—';
+  }
 }
 
 /* --- BOT STATUS --- */
