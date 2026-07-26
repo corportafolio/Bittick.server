@@ -1268,12 +1268,19 @@ async function dismissPosition(posId, type) {
 }
 
 function renderPositionItem(p) {
-  var pnl = parseFloat(p.unrealizedProfit || p.pnl || 0);
-  var pnlPct = parseFloat(p.unrealizedProfitPercent || p.pnlPct || 0);
-  var side = (p.side || 'LONG').toUpperCase();
-  var type = (p.type || 'spot').toLowerCase();
+  // Normalize field names from API (snake_case) to frontend (camelCase)
+  var entryPrice = p.entry_price;
+  var currentPrice = p.current_price;
+  var targetPrice = p.target;
+  var stopPrice = p.stop_loss;
+  var investedUsdt = p.usd_amount;
+  var symbol = p.asset;
+  var side = (p.strategy_type || 'LONG').toUpperCase();
+  var type = (p.bot_type || 'spot').toLowerCase();
   var status = p.status || 'open';
   var isOpen = status !== 'closed';
+  var pnl = parseFloat(p.pnl || 0);
+  var pnlPct = parseFloat(p.pnl_percent || 0);
   var isPos = pnl >= 0;
 
   var badgeTypeClass = type === 'futures' ? (side === 'SHORT' ? 'badge-short' : 'badge-long') : 'badge-spot';
@@ -1281,45 +1288,45 @@ function renderPositionItem(p) {
   var badgeStatusClass = isOpen ? 'badge-open' : 'badge-closed';
   var badgeStatusLabel = isOpen ? '[Abierta]' : '[Cerrada]';
 
-  var entryPrice = p.entryPrice ? formatPrice(p.entryPrice) : '—';
-  var currentPrice = p.currentPrice ? formatPrice(p.currentPrice) : '—';
-  var targetPrice = p.targetPrice ? formatPrice(p.targetPrice) : '—';
-  var stopPrice = p.stopPrice ? formatPrice(p.stopPrice) : '—';
-  var investedUsdt = p.investedUsdt != null ? parseFloat(p.investedUsdt).toFixed(2) : '—';
+  var entryPriceFmt = entryPrice ? formatPrice(entryPrice) : '—';
+  var currentPriceFmt = currentPrice ? formatPrice(currentPrice) : '—';
+  var targetPriceFmt = targetPrice ? formatPrice(targetPrice) : '—';
+  var stopPriceFmt = stopPrice ? formatPrice(stopPrice) : '—';
+  var investedUsdtFmt = investedUsdt != null ? parseFloat(investedUsdt).toFixed(2) : '—';
   var score = p.score != null ? p.score : '—';
   var confidence = p.confidence != null ? p.confidence : '—';
 
-  var openedAt = p.openedAt ? formatDateTimeLocal(p.openedAt) : '—';
-  var closedAt = p.closedAt ? formatDateTimeLocal(p.closedAt) : '—';
+  var openedAt = p.opened_at ? formatDateTimeLocal(p.opened_at) : '—';
+  var closedAt = p.closed_at ? formatDateTimeLocal(p.closed_at) : '—';
 
   var html = '<div class="position-card">' +
     '<div class="position-header">' +
       '<span class="badge-type ' + badgeTypeClass + '">' + badgeTypeLabel + '</span>' +
-      '<span class="position-symbol">' + (p.symbol || '') + '</span>' +
+      '<span class="position-symbol">' + (symbol || '') + '</span>' +
       '<span class="badge-status ' + badgeStatusClass + '">' + badgeStatusLabel + '</span>' +
       '<span class="position-pnl ' + (isPos ? 'positive' : 'negative') + '" style="margin-left:auto">' + (isPos ? '+' : '') + pnl.toFixed(2) + ' USDT</span>' +
     '</div>' +
     '<div class="position-details">' +
       '<span>Puntaje: ' + score + '/10</span>' +
       '<span>Confianza: ' + confidence + '/10</span>' +
-      (investedUsdt !== '—' ? '<span>Apostado: $' + investedUsdt + '</span>' : '') +
+      (investedUsdtFmt !== '—' ? '<span>Apostado: $' + investedUsdtFmt + '</span>' : '') +
     '</div>' +
     '<div class="position-prices">';
 
   if (isOpen) {
     html +=
-      '<div class="price-item"><span class="price-label">Entrada</span><span class="price-value">' + entryPrice + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Actual</span><span class="price-value">' + currentPrice + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPrice + '</span></div>';
-    if (type === 'futures' && stopPrice !== '—') {
-      html += '<div class="price-item"><span class="price-label">Stop</span><span class="price-value stop">' + stopPrice + '</span></div>';
+      '<div class="price-item"><span class="price-label">Entrada</span><span class="price-value">' + entryPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">Actual</span><span class="price-value">' + currentPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPriceFmt + '</span></div>';
+    if (type === 'futures' && stopPriceFmt !== '—') {
+      html += '<div class="price-item"><span class="price-label">Stop</span><span class="price-value stop">' + stopPriceFmt + '</span></div>';
     }
   } else {
-    var closedPrice = p.closedPrice ? formatPrice(p.closedPrice) : currentPrice;
+    var closedPriceFmt = p.current_price ? formatPrice(p.current_price) : currentPriceFmt;
     html +=
-      '<div class="price-item"><span class="price-label">Entrada</span><span class="price-value">' + entryPrice + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Cerrada</span><span class="price-value">' + closedPrice + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPrice + '</span></div>';
+      '<div class="price-item"><span class="price-label">Entrada</span><span class="price-value">' + entryPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">Cerrada</span><span class="price-value">' + closedPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPriceFmt + '</span></div>';
   }
 
   html += '</div>' +
@@ -1347,8 +1354,8 @@ function renderPositionItem(p) {
         '<button class="btn btn-danger btn-sm" id="' + closeBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '">CERRAR POSICIÓN</button>' +
       '</div>';
   } else {
-    var finalPnl = parseFloat(p.realizedPnl || p.pnl || 0);
-    var finalPnlPct = parseFloat(p.realizedPnlPercent || p.pnlPct || 0);
+    var finalPnl = parseFloat(p.pnl || 0);
+    var finalPnlPct = parseFloat(p.pnl_percent || 0);
     var finalPnlPos = finalPnl >= 0;
     var dismissBtnId = 'dismiss-pos-' + (p.id || 'unknown');
     html +=
