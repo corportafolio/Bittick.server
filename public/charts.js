@@ -148,13 +148,13 @@ function updateLastCandle(kline){
   volumeSeries.update({ time: t, value: v, color: volColor });
 }
 
-function drawTradingZone(date, type, startPrice, endPrice, color) {
+function drawTradingZone(date, type, startPrice, endPrice, color, lastTime) {
   if (!chart) return;
   var dateParts = date.split('-');
   var startTime = Math.floor(new Date(
     parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2])
   ).getTime() / 1000);
-  var endTime = startTime + (30 * 24 * 60 * 60);
+  var endTime = lastTime || (startTime + (30 * 24 * 60 * 60));
   var top = Math.max(startPrice, endPrice);
   var bottom = Math.min(startPrice, endPrice);
   var noScale = function() { return null; };
@@ -194,12 +194,13 @@ function drawTradingZone(date, type, startPrice, endPrice, color) {
   tradingZoneMarkers.push(bottomLine);
 }
 
-function setTradingZones(zones) {
+function setTradingZones(zones, lastTime) {
   clearTradingZones();
   if (!zones || !zones.length) return;
+  var end = lastTime || 0;
   for (var i = 0; i < zones.length; i++) {
     var z = zones[i];
-    drawTradingZone(z.date, z.type, z.start_price, z.end_price, z.color);
+    drawTradingZone(z.date, z.type, z.start_price, z.end_price, z.color, end);
   }
 }
 

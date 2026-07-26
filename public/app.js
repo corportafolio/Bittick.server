@@ -1048,12 +1048,14 @@ function updateChart() {
 function loadTradingZones() {
   var price = store.state.trading.currentPrice;
   if (!price) return;
+  var klines = store.state.trading.klines || [];
+  var lastTime = klines.length ? Math.floor((klines[klines.length - 1].openTime || 0) / 1000) : 0;
   api.get('/api/chart/trading-zones?price=' + price, false)
     .then(function(json) {
       if (json.exito && json.data) {
         store.dispatch('SET_TRADING_ZONES', json.data);
         if (typeof BittickChart !== 'undefined' && BittickChart.setTradingZones) {
-          BittickChart.setTradingZones(json.data);
+          BittickChart.setTradingZones(json.data, lastTime);
         }
       }
     })

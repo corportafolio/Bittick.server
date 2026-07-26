@@ -21,9 +21,9 @@ async function getCachedKlines(interval, limit, type) {
     return cached.klines.slice(-limit);
   }
 
-  const klines = await binance.getKlines('BTCUSDT', interval, Math.min(limit, 1000), type);
+  const klines = await binance.getKlines('BTCUSDT', interval, 1000, type);
   cache.set(key, { klines: klines, lastUpdate: now });
-  return klines;
+  return klines.slice(-limit);
 }
 
 async function refreshLatestKlines() {
