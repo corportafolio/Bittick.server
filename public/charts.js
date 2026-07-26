@@ -26,67 +26,80 @@ function render(containerEl, data, options){
   var upColor = opts.upColor || '#4CAF50';
   var downColor = opts.downColor || '#F44336';
 
-  chart = LightweightCharts.createChart(container, {
-    width: container.clientWidth,
-    height: container.clientHeight || 340,
-    layout: {
-      background: { color: '#1A1A1A' },
-      textColor: '#999999',
-      fontSize: 11
-    },
-    grid: {
-      vertLines: { color: '#252525' },
-      horzLines: { color: '#252525' }
-    },
-    crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' },
-      horzLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' }
-    },
-    rightPriceScale: {
-      borderColor: '#2A2A2A',
-      scaleMargins: { top: 0.1, bottom: 0.25 }
-    },
-    timeScale: {
-      borderColor: '#2A2A2A',
-      timeVisible: true,
-      secondsVisible: false
-    },
-    handleScale: { axisPressedMouseMove: true },
-    handleScroll: { mouseWheel: true, pressedMouseMove: true }
-  });
+  var containerWidth = container.clientWidth || container.offsetWidth || 340;
+  if (containerWidth === 0) {
+    console.warn('Chart container has 0 width, deferring render');
+    return;
+  }
 
-  candleSeries = chart.addCandlestickSeries({
-    upColor: upColor,
-    downColor: downColor,
-    borderUpColor: upColor,
-    borderDownColor: downColor,
-    wickUpColor: upColor,
-    wickDownColor: downColor
-  });
+  try {
+    chart = LightweightCharts.createChart(container, {
+      width: containerWidth,
+      height: container.clientHeight || 340,
+      layout: {
+        background: { color: '#1A1A1A' },
+        textColor: '#999999',
+        fontSize: 11
+      },
+      grid: {
+        vertLines: { color: '#252525' },
+        horzLines: { color: '#252525' }
+      },
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+        vertLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' },
+        horzLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' }
+      },
+      rightPriceScale: {
+        borderColor: '#2A2A2A',
+        scaleMargins: { top: 0.1, bottom: 0.25 }
+      },
+      timeScale: {
+        borderColor: '#2A2A2A',
+        timeVisible: true,
+        secondsVisible: false
+      },
+      handleScale: { axisPressedMouseMove: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true }
+    });
 
-  volumeSeries = chart.addHistogramSeries({
-    priceFormat: { type: 'volume' },
-    priceScaleId: 'volume',
-    color: '#F7931A',
-    scaleMargins: { top: 0.8, bottom: 0 }
-  });
+    candleSeries = chart.addCandlestickSeries({
+      upColor: upColor,
+      downColor: downColor,
+      borderUpColor: upColor,
+      borderDownColor: downColor,
+      wickUpColor: upColor,
+      wickDownColor: downColor
+    });
 
-  chart.priceScale('volume').applyOptions({
-    scaleMargins: { top: 0.8, bottom: 0 }
-  });
+    volumeSeries = chart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'volume',
+      color: '#F7931A',
+      scaleMargins: { top: 0.8, bottom: 0 }
+    });
 
-  setData(data);
+    chart.priceScale('volume').applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 }
+    });
 
-  var ro = new ResizeObserver(function(entries){
-    if(chart && entries[0]){
-      chart.applyOptions({
-        width: entries[0].contentRect.width,
-        height: entries[0].contentRect.height
-      });
+    setData(data);
+
+    var ro = new ResizeObserver(function(entries){
+      if(chart && entries[0]){
+        chart.applyOptions({
+          width: entries[0].contentRect.width,
+          height: entries[0].contentRect.height
+        });
+      }
+    });
+    ro.observe(container);
+  } catch (e) {
+    console.error('Chart render error:', e);
+    if (containerEl) {
+      containerEl.innerHTML = '<div class="chart-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--text-muted);font-size:.85rem;gap:8px">Error cargando gráfico</div>';
     }
-  });
-  ro.observe(container);
+  }
 }
 
 function setData(data){
@@ -110,6 +123,7 @@ function setData(data){
 
     candles.push({ time: ts, open: o, high: h, low: l, close: c });
 
+    if (isNaN(v)) v = 0;
     var volColor = c >= o ? 'rgba(76,175,80,0.3)' : 'rgba(244,67,54,0.3)';
     volumes.push({ time: ts, value: v, color: volColor });
   }
@@ -144,6 +158,7 @@ function updateLastCandle(kline){
 
   candleSeries.update({ time: t, open: o, high: h, low: l, close: c });
 
+  if (isNaN(v)) v = 0;
   var volColor = c >= o ? 'rgba(76,175,80,0.3)' : 'rgba(244,67,54,0.3)';
   volumeSeries.update({ time: t, value: v, color: volColor });
 }
