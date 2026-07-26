@@ -153,6 +153,37 @@ async function cancelPositionById(id) {
 }
 
 async function monitorPositions() {
+  // First, sync prices for ALL open positions (even if bot disabled)
+  const allOpenPositions = store.getPositions(null, 'open');
+  if (allOpenPositions.length > 0) {
+    try {
+      // Fetch spot and futures prices
+      const [spotTicker, futuresTicker] = await Promise.all([
+        binance.getTickerPrice('BTCUSDT', 'spot'),
+        binance.getTickerPrice('BTCUSDT', 'futures')
+      ]);
+      const spotPrice = spotTicker.price;
+      const futuresPrice = futuresTicker.price;
+
+      for (const pos of allOpenPositions) {
+        const currentPrice = pos.bot_type === 'spot' ? spotPrice : futuresPrice;
+        
+        // Calculate PnL
+        const entry = pos.entry_price || currentPrice; // fallback if entry_price is 0
+        const pnlAmount = pos.strategy_type === 'long'
+          ? (currentPrice - entry) * pos.quantity
+          : (entry - currentPrice) * pos.quantity;
+        const pnlPercent = entry > 0 ? ((pnlAmount / (entry * pos.quantity)) * 100) : 0;
+        const pnl = { pnl: parseFloat(pnlAmount.toFixed(2)), pnlPercent: parseFloat(pnlPercent.toFixed(2)) };
+
+        store.updatePositionPrice(pos.id, currentPrice, pnl);
+      }
+    } catch (error) {
+      logger.error('bot-manager', `Price sync error: ${error.message}`);
+    }
+  }
+
+  // Then, monitor for auto-close (only if bot enabled)
   for (const botType of BOT_TYPES) {
     const config = getBotConfig(botType);
     if (!config.enabled) continue;

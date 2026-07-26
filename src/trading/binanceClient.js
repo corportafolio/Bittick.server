@@ -91,7 +91,8 @@ async function getKlines(symbol = 'BTCUSDT', interval = '1h', limit = 100, type 
 }
 
 async function getTickerPrice(symbol = 'BTCUSDT', type = 'spot') {
-  const data = await publicRequest(type, '/v3/ticker/price', { symbol });
+  const path = type === 'futures' ? '/v1/ticker/price' : '/v3/ticker/price';
+  const data = await publicRequest(type, path, { symbol });
   return { symbol: data.symbol, price: parseFloat(data.price) };
 }
 

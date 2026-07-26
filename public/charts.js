@@ -163,7 +163,19 @@ function setData(data){
   try {
     candleSeries.setData(candles);
     volumeSeries.setData(volumes);
-    chart.timeScale().fitContent();
+    // Skip fitContent for monthly data (sparse) - causes "Value is null"
+    if (candles.length > 100 && candles[0] && candles[candles.length - 1]) {
+      var timeRange = candles[candles.length - 1].time - candles[0].time;
+      var avgInterval = timeRange / candles.length;
+      // If average interval > 15 days, it's likely monthly/weekly data
+      if (avgInterval > 15 * 24 * 3600) {
+        console.log('Sparse data detected (interval:', avgInterval / 86400, 'days), skipping fitContent');
+      } else {
+        chart.timeScale().fitContent();
+      }
+    } else {
+      chart.timeScale().fitContent();
+    }
   } catch (e) {
     console.error('setData error:', e, e.stack);
   }
