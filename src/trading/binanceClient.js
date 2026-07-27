@@ -160,7 +160,20 @@ async function getBalance(type) {
   return { total: parseFloat(usdt?.free || 0) + parseFloat(usdt?.locked || 0), available: parseFloat(usdt?.free || 0) };
 }
 
+async function getOpenInterestHist(symbol = 'BTCUSDT', period = '1h', limit = 100) {
+  const { data } = await axios.get(
+    `${MAINNET_FUTURES_BASE}/futures/data/openInterestHist`,
+    { params: { symbol, period, limit } }
+  );
+  return data.map(d => ({
+    timestamp: parseInt(d.timestamp),
+    openInterest: parseFloat(d.sumOpenInterest),
+    openInterestValue: parseFloat(d.sumOpenInterestValue)
+  }));
+}
+
 module.exports = {
   getKlines, getTickerPrice, get24hrTicker,
-  placeOrder, cancelOrder, getAccountInfo, getPositionRisk, getOpenOrders, getBalance, setLeverage
+  placeOrder, cancelOrder, getAccountInfo, getPositionRisk, getOpenOrders, getBalance, setLeverage,
+  getOpenInterestHist
 };

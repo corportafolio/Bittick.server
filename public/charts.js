@@ -21,6 +21,11 @@ var rsiContainer = null;
 var smaSeries = null;
 var emaSeries = null;
 
+// Open Interest chart
+var oiChart = null;
+var oiSeries = null;
+var oiContainer = null;
+
 function render(containerEl, data, options){
   container = containerEl;
   if(!container || !window.LightweightCharts) return;
@@ -452,6 +457,97 @@ function removeRSI() {
   if (c) c.classList.add('hidden');
 }
 
+function renderOI(data) {
+  oiContainer = document.getElementById('oi-container');
+  if (!oiContainer || !window.LightweightCharts) return;
+  oiContainer.classList.remove('hidden');
+
+  var times = data.map(function(d) { return Math.floor((d.openTime || d.time || 0) / 1000); });
+  var oiValues = data.map(function(d) { return parseFloat(d.openInterest); });
+  if (!oiValues.length) { oiContainer.classList.add('hidden'); return; }
+
+  if (oiChart) {
+    oiChart.remove();
+    oiChart = null;
+    oiSeries = null;
+  }
+
+  var w = oiContainer.clientWidth || oiContainer.offsetWidth || 0;
+  var h = oiContainer.clientHeight || oiContainer.offsetHeight || 120;
+  if (w === 0 || h === 0) {
+    requestAnimationFrame(function() { renderOI(data); });
+    return;
+  }
+
+  try {
+    oiChart = LightweightCharts.createChart(oiContainer, {
+      width: w, height: h,
+      layout: {
+        background: { color: '#1A1A1A' },
+        textColor: '#999999',
+        fontSize: 10
+      },
+      grid: {
+        vertLines: { color: '#252525' },
+        horzLines: { color: '#252525' }
+      },
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+        vertLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' },
+        horzLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' }
+      },
+      rightPriceScale: {
+        borderColor: '#2A2A2A',
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+        autoScale: true
+      },
+      timeScale: {
+        borderColor: '#2A2A2A',
+        timeVisible: false,
+        secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true
+      },
+      handleScale: { axisPressedMouseMove: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true }
+    });
+
+    oiSeries = oiChart.addLineSeries({
+      color: '#FFB300',
+      lineWidth: 1,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
+    });
+
+    var oiData = oiValues.map(function(v, i) {
+      return { time: times[i], value: v };
+    });
+    oiSeries.setData(oiData);
+
+    var ro = new ResizeObserver(function(entries) {
+      if (oiChart && entries[0]) {
+        oiChart.applyOptions({ width: entries[0].contentRect.width, height: entries[0].contentRect.height });
+      }
+    });
+    ro.observe(oiContainer);
+  } catch (e) {
+    console.error('OI chart error:', e);
+    oiContainer.classList.add('hidden');
+  }
+}
+
+function removeOI() {
+  if (oiChart) {
+    oiChart.remove();
+    oiChart = null;
+    oiSeries = null;
+    oiContainer = null;
+  }
+  var c = document.getElementById('oi-container');
+  if (c) c.classList.add('hidden');
+}
+
 function calcSMA(closes, period) {
   var result = [];
   for (var i = period - 1; i < closes.length; i++) {
@@ -534,7 +630,8 @@ function removeEMA() {
 return { render: render, setData: setData, updateLastCandle: updateLastCandle,
          setTradingZones: setTradingZones, clearTradingZones: clearTradingZones,
          destroy: destroy, renderRSI: renderRSI, removeRSI: removeRSI,
-         addSMA: addSMA, removeSMA: removeSMA, addEMA: addEMA, removeEMA: removeEMA };
+         addSMA: addSMA, removeSMA: removeSMA, addEMA: addEMA, removeEMA: removeEMA,
+         renderOI: renderOI, removeOI: removeOI };
 
 })();
 

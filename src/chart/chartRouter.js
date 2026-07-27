@@ -8,12 +8,18 @@ const router = express.Router();
 
 const VALID_INTERVALS = ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'];
 
+const OI_VALID_PERIODS = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d'];
+
 /* === KLINE CACHE === */
 const cache = new Map();
 const CACHE_TTL = 60000;
 
-async function getCachedKlines(interval, limit, type) {
-  const key = interval + '_' + type;
+/* === OPEN INTEREST CACHE === */
+const oiCache = new Map();
+const OI_CACHE_TTL = 60000;
+
+async function getCachedKlines(interval, limit) {
+  const key = interval;
   const cached = cache.get(key);
   const now = Date.now();
 
@@ -21,7 +27,7 @@ async function getCachedKlines(interval, limit, type) {
     return cached.klines.slice(-limit);
   }
 
-  const klines = await binance.getKlines('BTCUSDT', interval, 1000, type);
+  const klines = await binance.getKlines('BTCUSDT', interval, 1000, 'spot');
   cache.set(key, { klines: klines, lastUpdate: now });
   return klines.slice(-limit);
 }
@@ -29,7 +35,7 @@ async function getCachedKlines(interval, limit, type) {
 async function refreshLatestKlines() {
   for (const interval of VALID_INTERVALS) {
     try {
-      const key = interval + '_spot';
+      const key = interval;
       const cached = cache.get(key);
       const fresh = await binance.getKlines('BTCUSDT', interval, cached ? 5 : 1000, 'spot');
 
@@ -64,14 +70,33 @@ function startBackgroundRefresh() {
   logger.info('kline-cache', 'Background refresh started (60s)');
 }
 
+/* === OPEN INTEREST CACHE FUNCTIONS === */
+async function getCachedOI(period, limit) {
+  const periodKey = period;
+  const cached = oiCache.get(periodKey);
+  const now = Date.now();
+
+  if (cached && (now - cached.lastUpdate) < OI_CACHE_TTL && cached.data.length >= limit) {
+    return cached.data.slice(-limit);
+  }
+
+  try {
+    const data = await binance.getOpenInterestHist('BTCUSDT', period, limit);
+    oiCache.set(periodKey, { data, lastUpdate: now });
+    return data.slice(-limit);
+  } catch (e) {
+    logger.error('oi-cache', 'getCachedOI error: ' + e.message);
+    return cached?.data?.slice(-limit) || [];
+  }
+}
+
 /* === ROUTES === */
 
 router.get('/klines', async (req, res) => {
   try {
     const interval = VALID_INTERVALS.includes(req.query.interval) ? req.query.interval : '1h';
     const limit = Math.min(parseInt(req.query.limit) || 500, 1000);
-    const type = req.query.type === 'futures' ? 'futures' : 'spot';
-    const klines = await getCachedKlines(interval, limit, type);
+    const klines = await getCachedKlines(interval, limit);
     res.json({ exito: true, data: klines });
   } catch (error) {
     logger.error('chart-api', 'GET klines error: ' + error.message);
@@ -90,10 +115,21 @@ router.get('/ticker', async (req, res) => {
   }
 });
 
+router.get('/openInterest', async (req, res) => {
+  try {
+    const period = OI_VALID_PERIODS.includes(req.query.period) ? req.query.period : '1h';
+    const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+    const data = await getCachedOI(period, limit);
+    res.json({ exito: true, data });
+  } catch (error) {
+    logger.error('chart-api', 'GET openInterest error: ' + error.message);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
 router.get('/zones', async (req, res) => {
   try {
-    const type = req.query.type === 'futures' ? 'futures' : 'spot';
-    const klines = await binance.getKlines('BTCUSDT', '1h', 500, type);
+    const klines = await binance.getKlines('BTCUSDT', '1h', 500, 'spot');
     const ticker = await binance.getTickerPrice('BTCUSDT');
     const result = renkoStrategy.getZones(klines, ticker.price);
     res.json({ exito: true, data: result });

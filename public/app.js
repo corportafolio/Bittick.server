@@ -140,7 +140,8 @@ function cacheDom() {
     'menu-account-btn','menu-account-text','menu-bot-img','header-bot-image','header-bot-img','header-bot-num',
     'opp-toggle-btn','sidebar-backdrop',
     'indicator-menu','indicator-btn','indicator-dropdown','rsi-container',
-    'ind-rsi','ind-sma','ind-ema'
+    'ind-rsi','ind-sma','ind-ema',
+    'ind-oi','oi-container'
   ].forEach(function(id) { els[id] = $(id); });
 }
 
@@ -1077,6 +1078,9 @@ function renderChart(data) {
     if (isEMAEnabled()) {
       BittickChart.addEMA && BittickChart.addEMA(data, 50);
     }
+    if (isOIEnabled()) {
+      renderOI(data);
+    }
   }
   renderChartInfo(data);
 }
@@ -1098,6 +1102,7 @@ function renderChartInfo(data) {
 
 /* --- RSI --- */
 var rsiChart = null;
+var oiChart = null;
 
 function isRSIEnabled() {
   var cb = els['ind-rsi'];
@@ -1111,6 +1116,16 @@ function isSMAEnabled() {
 
 function isEMAEnabled() {
   var cb = els['ind-ema'];
+  return cb && cb.checked;
+}
+
+function isOIEnabled() {
+  var cb = els['ind-oi'];
+  return cb && cb.checked;
+}
+
+function isOIEnabled() {
+  var cb = els['ind-oi'];
   return cb && cb.checked;
 }
 
@@ -1248,6 +1263,104 @@ function renderRSI(data) {
     console.error('RSI chart error:', e);
     container.classList.add('hidden');
   }
+}
+
+function getOIPeriod() {
+  var tf = store.state.trading.klinesInterval || '1h';
+  if (tf === '1m' || tf === '5m') return '5m';
+  if (tf === '15m' || tf === '30m') return '15m';
+  if (tf === '1h' || tf === '4h') return '1h';
+  return '1d';
+}
+
+function renderOI(data) {
+  var container = els['oi-container'];
+  if (!container || !window.LightweightCharts) return;
+  container.classList.remove('hidden');
+
+  var period = getOIPeriod();
+  fetch('/api/chart/openInterest?period=' + period + '&limit=100')
+    .then(function(r) { return r.json(); })
+    .then(function(json) {
+      if (!json.exito || !json.data || !json.data.length) {
+        container.classList.add('hidden');
+        return;
+      }
+      var oiData = json.data.map(function(d) {
+        return { time: Math.floor(d.timestamp / 1000), value: d.openInterest };
+      });
+      if (!oiData.length) { container.classList.add('hidden'); return; }
+
+      if (oiChart) {
+        oiChart.remove();
+        oiChart = null;
+      }
+
+      var w = container.clientWidth || container.offsetWidth || 0;
+      var h = container.clientHeight || container.offsetHeight || 100;
+      if (w === 0 || h === 0) {
+        requestAnimationFrame(function() { renderOI(data); });
+        return;
+      }
+
+      try {
+        oiChart = LightweightCharts.createChart(container, {
+          width: w, height: h,
+          layout: {
+            background: { color: '#1A1A1A' },
+            textColor: '#999999',
+            fontSize: 10
+          },
+          grid: {
+            vertLines: { color: '#252525' },
+            horzLines: { color: '#252525' }
+          },
+          crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+            vertLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' },
+            horzLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' }
+          },
+          rightPriceScale: {
+            borderColor: '#2A2A2A',
+            scaleMargins: { top: 0.1, bottom: 0.1 },
+            autoScale: true
+          },
+          timeScale: {
+            borderColor: '#2A2A2A',
+            timeVisible: false,
+            secondsVisible: false,
+            fixLeftEdge: true,
+            fixRightEdge: true
+          },
+          handleScale: { axisPressedMouseMove: true },
+          handleScroll: { mouseWheel: true, pressedMouseMove: true }
+        });
+
+        var oiLine = oiChart.addLineSeries({
+          color: '#F7931A',
+          lineWidth: 1,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+          priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
+        });
+        oiLine.setData(oiData);
+
+        var ro = new ResizeObserver(function(entries) {
+          if (oiChart && entries[0]) {
+            oiChart.applyOptions({ width: entries[0].contentRect.width, height: entries[0].contentRect.height });
+          }
+        });
+        ro.observe(container);
+
+      } catch (e) {
+        console.error('OI chart error:', e);
+        container.classList.add('hidden');
+      }
+    })
+    .catch(function(e) {
+      console.error('OI fetch error:', e);
+      container.classList.add('hidden');
+    });
 }
 
 /* --- OPPORTUNITIES (filtered for free tier) --- */
@@ -1945,7 +2058,7 @@ function bindEvents() {
   });
 
   // Indicator checkboxes
-  ['ind-rsi', 'ind-sma', 'ind-ema'].forEach(function(id) {
+  ['ind-rsi', 'ind-sma', 'ind-ema', 'ind-oi'].forEach(function(id) {
     var el = els[id];
     if (el) {
       el.addEventListener('change', function() {
@@ -1965,6 +2078,14 @@ function bindEvents() {
         } else if (indicator === 'ema') {
           if (this.checked) BittickChart.addEMA && BittickChart.addEMA(data, 50);
           else BittickChart.removeEMA && BittickChart.removeEMA();
+        } else if (indicator === 'oi') {
+          if (this.checked) {
+            renderOI(data);
+            els['oi-container']?.classList.remove('hidden');
+          } else {
+            BittickChart.removeOI && BittickChart.removeOI();
+            els['oi-container']?.classList.add('hidden');
+          }
         }
       });
     }
