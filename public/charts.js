@@ -497,8 +497,8 @@ function addSMA(data, period) {
 }
 
 function removeSMA() {
-  if (smaSeries) {
-    smaSeries.remove();
+  if (smaSeries && chart) {
+    chart.removeSeries(smaSeries);
     smaSeries = null;
   }
 }
@@ -525,8 +525,8 @@ function addEMA(data, period) {
 }
 
 function removeEMA() {
-  if (emaSeries) {
-    emaSeries.remove();
+  if (emaSeries && chart) {
+    chart.removeSeries(emaSeries);
     emaSeries = null;
   }
 }
