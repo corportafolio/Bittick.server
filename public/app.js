@@ -1100,7 +1100,7 @@ function renderOpportunities() {
     opps = opps.filter(function(opp) {
       var score = parseFloat(opp.score || 0);
       var conf = parseFloat(opp.confidence || 0);
-      return score >= 5 && score <= 6 && conf >= 5 && conf <= 6;
+      return score >= 5 && conf >= 5;
     });
   }
 
@@ -1109,7 +1109,7 @@ function renderOpportunities() {
   if (!opps.length) {
     var msg = premium
       ? 'No hay oportunidades en este momento'
-      : 'Conecta un Bittick Agent para ver oportunidades score 7+';
+      : 'Conecta un Bittick Agent para ver oportunidades score ≥5 y confianza ≥5';
     safeSetHTML(list, '<p class="empty-text" style="padding:32px 0">' + msg + '</p>');
     return;
   }
@@ -1692,12 +1692,19 @@ function bindSettingsEvents() {
    PANEL (menu)
    ============================================ */
 function openPanel() {
-  els['right-panel'].classList.add('panel-open');
-  els['backdrop'].classList.remove('hidden');
+  if (window.innerWidth <= 1024) {
+    els['sidebar']?.classList.add('sidebar-open');
+    els['sidebar-backdrop']?.classList.remove('hidden');
+  } else {
+    els['right-panel'].classList.add('panel-open');
+    els['backdrop'].classList.remove('hidden');
+  }
 }
 function closePanel() {
   els['right-panel'].classList.remove('panel-open');
   els['backdrop'].classList.add('hidden');
+  els['sidebar']?.classList.remove('sidebar-open');
+  els['sidebar-backdrop']?.classList.add('hidden');
 }
 
 /* ============================================
@@ -1741,9 +1748,20 @@ function bindEvents() {
   els['account-retry-btn']?.addEventListener('click', function() {
     window.location.hash = '#/account';
   });
-  els['menu-btn']?.addEventListener('click', openPanel);
+  els['menu-btn']?.addEventListener('click', function() {
+    if (window.innerWidth <= 1024) {
+      els['sidebar']?.classList.toggle('sidebar-open');
+      els['sidebar-backdrop']?.classList.toggle('visible');
+    } else {
+      openPanel();
+    }
+  });
   els['panel-close']?.addEventListener('click', closePanel);
   els['backdrop']?.addEventListener('click', closePanel);
+  els['sidebar-backdrop']?.addEventListener('click', function() {
+    els['sidebar']?.classList.remove('sidebar-open');
+    this.classList.remove('visible');
+  });
   els['disconnect-btn']?.addEventListener('click', disconnect);
   els['modal-overlay']?.addEventListener('click', function(e) {
     if (e.target === els['modal-overlay']) hideModal();

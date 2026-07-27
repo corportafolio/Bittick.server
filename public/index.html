@@ -18,9 +18,6 @@
 
 <!-- HEADER (siempre visible) -->
     <header id="header">
-      <button id="menu-btn" class="icon-btn" aria-label="Menu">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
       <div id="logo" class="header-logo">
         <svg width="100" height="24" viewBox="0 0 100 24"><text x="0" y="19" fill="#F7931A" font-size="20" font-weight="700" font-family="system-ui,sans-serif">bittick</text></svg>
       </div>
@@ -34,7 +31,13 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span id="notif-badge" class="badge hidden"></span>
       </button>
+      <button id="menu-btn" class="icon-btn" aria-label="Menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
     </header>
+
+    <!-- SIDEBAR BACKDROP (mobile/tablet) -->
+    <div id="sidebar-backdrop" class="hidden"></div>
 
     <!-- PANEL DERECHO (overlay) -->
     <div id="right-panel" class="panel-closed">

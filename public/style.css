@@ -602,6 +602,12 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .position-pnl-closed.negative{background:rgba(183,28,28,.15);color:#B71C1C}
 
 /* responsive */
+@media(max-width:1024px){
+  #sidebar{display:none}
+  #sidebar.sidebar-open{display:block;position:fixed;top:var(--header-h);left:0;width:300px;height:calc(100dvh - var(--header-h));z-index:150;background:var(--surface-1);border-right:1px solid var(--border);box-shadow:var(--shadow)}
+  #sidebar-backdrop{display:block;position:fixed;top:var(--header-h);left:0;width:100%;height:calc(100dvh - var(--header-h));background:rgba(0,0,0,.4);z-index:140}
+  #header-bot-num{display:none}
+}
 @media(max-width:768px){
   .position-card{padding:10px 12px}
   .position-details{grid-template-columns:1fr 1fr}
