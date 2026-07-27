@@ -138,7 +138,8 @@ function cacheDom() {
     'wallet-info','wallet-address','disconnect-btn',
     'modal-overlay','modal-content','toast-container',
     'menu-account-btn','menu-account-text','menu-bot-img','header-bot-image','header-bot-img','header-bot-num',
-    'opp-toggle-btn','sidebar-backdrop'
+    'opp-toggle-btn','sidebar-backdrop',
+    'indicator-menu','indicator-btn','indicator-dropdown','rsi-container'
   ].forEach(function(id) { els[id] = $(id); });
 }
 

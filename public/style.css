@@ -162,7 +162,7 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   background:var(--surface-2);
 }
 .timeframe-selector{
-  display:flex;gap:0;border-bottom:none;overflow-x:auto;
+  display:flex;gap:0;border-bottom:none;overflow-x:auto;min-width:0;flex:1;
 }
 .tf-btn{
   padding:8px 14px;font-size:.7rem;font-weight:700;text-transform:uppercase;
