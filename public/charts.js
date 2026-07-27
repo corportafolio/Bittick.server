@@ -12,6 +12,11 @@ var container = null;
 var tradingZoneMarkers = [];
 var isSparseData = false;
 
+// RSI chart
+var rsiChart = null;
+var rsiSeries = null;
+var rsiContainer = null;
+
 function render(containerEl, data, options){
   container = containerEl;
   if(!container || !window.LightweightCharts) return;
@@ -203,6 +208,12 @@ function destroy(){
     volumeSeries = null;
     tradingZoneMarkers = [];
   }
+  if (rsiChart) {
+    rsiChart.remove();
+    rsiChart = null;
+    rsiSeries = null;
+    rsiContainer = null;
+  }
 }
 
 function updateLastCandle(kline){
@@ -287,9 +298,159 @@ function clearTradingZones() {
   tradingZoneMarkers = [];
 }
 
+// RSI methods
+function calculateRSI(closes, period) {
+  if (closes.length < period + 1) return [];
+  var gains = 0;
+  var losses = 0;
+  for (var i = 1; i <= period; i++) {
+    var diff = closes[i] - closes[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+  var avgGain = gains / period;
+  var avgLoss = losses / period;
+  var rsi = [];
+  rsi.push(100 - (100 / (1 + (avgGain / (avgLoss || 0.0001)))));
+  for (var j = period + 1; j < closes.length; j++) {
+    var d = closes[j] - closes[j - 1];
+    var gain = d >= 0 ? d : 0;
+    var loss = d < 0 ? -d : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    rsi.push(100 - (100 / (1 + (avgGain / (avgLoss || 0.0001)))));
+  }
+  return rsi;
+}
+
+function renderRSI(data) {
+  rsiContainer = document.getElementById('rsi-container');
+  if (!rsiContainer || !window.LightweightCharts) return;
+  rsiContainer.classList.remove('hidden');
+
+  var closes = data.map(function(d) { return parseFloat(d.close); });
+  var times = data.map(function(d) { return Math.floor((d.openTime || d.time || 0) / 1000); });
+  var rsiValues = calculateRSI(closes, 14);
+  if (!rsiValues.length) { rsiContainer.classList.add('hidden'); return; }
+
+  var offset = closes.length - rsiValues.length;
+  var rsiData = rsiValues.map(function(v, i) {
+    return { time: times[i + offset], value: v };
+  });
+
+  if (rsiChart) {
+    rsiChart.remove();
+    rsiChart = null;
+    rsiSeries = null;
+  }
+
+  var w = rsiContainer.clientWidth || rsiContainer.offsetWidth || 0;
+  var h = rsiContainer.clientHeight || rsiContainer.offsetHeight || 120;
+  if (w === 0 || h === 0) {
+    requestAnimationFrame(function() { renderRSI(data); });
+    return;
+  }
+
+  try {
+    rsiChart = LightweightCharts.createChart(rsiContainer, {
+      width: w, height: h,
+      layout: {
+        background: { color: '#1A1A1A' },
+        textColor: '#999999',
+        fontSize: 10
+      },
+      grid: {
+        vertLines: { color: '#252525' },
+        horzLines: { color: '#252525' }
+      },
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+        vertLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' },
+        horzLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' }
+      },
+      rightPriceScale: {
+        borderColor: '#2A2A2A',
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+        autoScale: true
+      },
+      timeScale: {
+        borderColor: '#2A2A2A',
+        timeVisible: false,
+        secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true
+      },
+      handleScale: { axisPressedMouseMove: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true }
+    });
+
+    rsiSeries = rsiChart.addLineSeries({
+      color: '#F7931A',
+      lineWidth: 1,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceFormat: { type: 'price', precision: 1, minMove: 0.1 }
+    });
+    rsiSeries.setData(rsiData);
+
+    // 70 line (overbought)
+    var h70 = rsiChart.addLineSeries({
+      color: 'rgba(244,67,54,0.5)',
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceFormat: { type: 'price', precision: 0 }
+    });
+    h70.setData([{ time: times[offset], value: 70 }, { time: times[times.length - 1], value: 70 }]);
+
+    // 30 line (oversold)
+    var h30 = rsiChart.addLineSeries({
+      color: 'rgba(76,175,80,0.5)',
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceFormat: { type: 'price', precision: 0 }
+    });
+    h30.setData([{ time: times[offset], value: 30 }, { time: times[times.length - 1], value: 30 }]);
+
+    // 50 line (mid)
+    var h50 = rsiChart.addLineSeries({
+      color: 'rgba(255,255,255,0.1)',
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dotted,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false
+    });
+    h50.setData([{ time: times[offset], value: 50 }, { time: times[times.length - 1], value: 50 }]);
+
+    var ro = new ResizeObserver(function(entries) {
+      if (rsiChart && entries[0]) {
+        rsiChart.applyOptions({ width: entries[0].contentRect.width, height: entries[0].contentRect.height });
+      }
+    });
+    ro.observe(rsiContainer);
+  } catch (e) {
+    console.error('RSI chart error:', e);
+    rsiContainer.classList.add('hidden');
+  }
+}
+
+function removeRSI() {
+  if (rsiChart) {
+    rsiChart.remove();
+    rsiChart = null;
+    rsiSeries = null;
+    rsiContainer = null;
+  }
+  var c = document.getElementById('rsi-container');
+  if (c) c.classList.add('hidden');
+}
+
 return { render: render, setData: setData, updateLastCandle: updateLastCandle,
          setTradingZones: setTradingZones, clearTradingZones: clearTradingZones,
-         destroy: destroy };
+         destroy: destroy, renderRSI: renderRSI, removeRSI: removeRSI };
 
 })();
 

@@ -1066,6 +1066,9 @@ function renderChart(data) {
       upColor: '#4CAF50', downColor: '#F44336',
       borderVisible: false, wickUpColor: '#4CAF50', wickDownColor: '#F44336'
     });
+    if (isRSIEnabled()) {
+      renderRSI(data);
+    }
   }
   renderChartInfo(data);
 }
@@ -1083,6 +1086,150 @@ function renderChartInfo(data) {
     '<span style="color:' + color + '">O: ' + formatPrice(first.open) + '</span>' +
     '<span style="color:' + color + '">C: ' + formatPrice(last.close) + ' (' + (isUp ? '+' : '') + change + '%)</span>' +
     '<span>V: ' + Number(data.reduce(function(s, k) { return s + k.volume; }, 0)).toLocaleString('en-US', { maximumFractionDigits: 0 }) + '</span>';
+}
+
+/* --- RSI --- */
+var rsiChart = null;
+
+function isRSIEnabled() {
+  var cb = els['ind-rsi'];
+  return cb && cb.checked;
+}
+
+function calculateRSI(closes, period) {
+  if (closes.length < period + 1) return [];
+  var gains = 0;
+  var losses = 0;
+  for (var i = 1; i <= period; i++) {
+    var diff = closes[i] - closes[i - 1];
+    if (diff >= 0) gains += diff;
+    else losses -= diff;
+  }
+  var avgGain = gains / period;
+  var avgLoss = losses / period;
+  var rsi = [];
+  rsi.push(100 - (100 / (1 + (avgGain / (avgLoss || 0.0001)))));
+  for (var j = period + 1; j < closes.length; j++) {
+    var d = closes[j] - closes[j - 1];
+    var gain = d >= 0 ? d : 0;
+    var loss = d < 0 ? -d : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    rsi.push(100 - (100 / (1 + (avgGain / (avgLoss || 0.0001)))));
+  }
+  return rsi;
+}
+
+function renderRSI(data) {
+  var container = els['rsi-container'];
+  if (!container || !window.LightweightCharts) return;
+  container.classList.remove('hidden');
+
+  var closes = data.map(function(d) { return parseFloat(d.close); });
+  var times = data.map(function(d) { return Math.floor((d.openTime || d.time || 0) / 1000); });
+  var rsiValues = calculateRSI(closes, 14);
+  if (!rsiValues.length) { container.classList.add('hidden'); return; }
+
+  var offset = closes.length - rsiValues.length;
+  var rsiData = rsiValues.map(function(v, i) {
+    return { time: times[i + offset], value: v };
+  });
+
+  if (rsiChart) {
+    rsiChart.remove();
+    rsiChart = null;
+  }
+
+  var w = container.clientWidth || container.offsetWidth || 0;
+  var h = container.clientHeight || container.offsetHeight || 120;
+  if (w === 0 || h === 0) {
+    requestAnimationFrame(function() { renderRSI(data); });
+    return;
+  }
+
+  try {
+    rsiChart = LightweightCharts.createChart(container, {
+      width: w, height: h,
+      layout: {
+        background: { color: '#1A1A1A' },
+        textColor: '#999999',
+        fontSize: 10
+      },
+      grid: {
+        vertLines: { color: '#252525' },
+        horzLines: { color: '#252525' }
+      },
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+        vertLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' },
+        horzLine: { color: '#F7931A', width: 1, style: 0, labelBackgroundColor: '#F7931A' }
+      },
+      rightPriceScale: {
+        borderColor: '#2A2A2A',
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+        autoScale: true
+      },
+      timeScale: {
+        borderColor: '#2A2A2A',
+        timeVisible: false,
+        secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true
+      },
+      handleScale: { axisPressedMouseMove: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true }
+    });
+
+    var rsiLine = rsiChart.addLineSeries({
+      color: '#F7931A',
+      lineWidth: 1,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceFormat: { type: 'price', precision: 1, minMove: 0.1 }
+    });
+    rsiLine.setData(rsiData);
+
+    var h70 = rsiChart.addLineSeries({
+      color: 'rgba(244,67,54,0.5)',
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceFormat: { type: 'price', precision: 0 }
+    });
+    h70.setData([{ time: times[offset], value: 70 }, { time: times[times.length - 1], value: 70 }]);
+
+    var h30 = rsiChart.addLineSeries({
+      color: 'rgba(76,175,80,0.5)',
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      priceFormat: { type: 'price', precision: 0 }
+    });
+    h30.setData([{ time: times[offset], value: 30 }, { time: times[times.length - 1], value: 30 }]);
+
+    var h50 = rsiChart.addLineSeries({
+      color: 'rgba(255,255,255,0.1)',
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dotted,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false
+    });
+    h50.setData([{ time: times[offset], value: 50 }, { time: times[times.length - 1], value: 50 }]);
+
+    var ro = new ResizeObserver(function(entries) {
+      if (rsiChart && entries[0]) {
+        rsiChart.applyOptions({ width: entries[0].contentRect.width, height: entries[0].contentRect.height });
+      }
+    });
+    ro.observe(container);
+
+    if (window.rsiChartsSync) window.rsiChartsSync();
+  } catch (e) {
+    console.error('RSI chart error:', e);
+    container.classList.add('hidden');
+  }
 }
 
 /* --- OPPORTUNITIES (filtered for free tier) --- */
@@ -1771,6 +1918,45 @@ function bindEvents() {
   els['disconnect-btn']?.addEventListener('click', disconnect);
   els['modal-overlay']?.addEventListener('click', function(e) {
     if (e.target === els['modal-overlay']) hideModal();
+  });
+
+  // Indicator menu toggle
+  els['indicator-btn']?.addEventListener('click', function(e) {
+    e.stopPropagation();
+    els['indicator-dropdown']?.classList.toggle('hidden');
+  });
+
+  // Indicator checkboxes
+  ['ind-rsi', 'ind-sma', 'ind-ema'].forEach(function(id) {
+    var el = els[id];
+    if (el) {
+      el.addEventListener('change', function() {
+        var indicator = this.dataset.indicator;
+        var data = store.state.trading.klines || [];
+        if (indicator === 'rsi') {
+          if (this.checked) {
+            renderRSI(data);
+            els['rsi-container']?.classList.remove('hidden');
+          } else {
+            BittickChart.removeRSI && BittickChart.removeRSI();
+            els['rsi-container']?.classList.add('hidden');
+          }
+        } else if (indicator === 'sma') {
+          if (this.checked) BittickChart.addSMA && BittickChart.addSMA(data, 20);
+          else BittickChart.removeSMA && BittickChart.removeSMA();
+        } else if (indicator === 'ema') {
+          if (this.checked) BittickChart.addEMA && BittickChart.addEMA(data, 50);
+          else BittickChart.removeEMA && BittickChart.removeEMA();
+        }
+      });
+    }
+  });
+
+  // Close dropdown on click outside
+  document.addEventListener('click', function(e) {
+    if (!els['indicator-menu']?.contains(e.target)) {
+      els['indicator-dropdown']?.classList.add('hidden');
+    }
   });
 
   els['right-panel']?.querySelectorAll('.panel-nav-btn[data-nav]').forEach(function(btn) {

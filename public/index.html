@@ -194,8 +194,27 @@
         <section id="dashboard-view">
           <!-- CHART -->
           <div id="chart-section">
-            <div id="timeframe-selector" class="timeframe-selector"></div>
+            <div id="chart-header-bar" class="chart-header-bar">
+              <div id="timeframe-selector" class="timeframe-selector"></div>
+              <div id="indicator-menu" class="indicator-menu hidden">
+                <button id="indicator-btn" class="icon-btn" aria-label="Indicadores" title="Indicadores">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20V16"/></svg>
+                </button>
+                <div id="indicator-dropdown" class="indicator-dropdown hidden">
+                  <label class="indicator-item">
+                    <input type="checkbox" id="ind-rsi" data-indicator="rsi"> <span>RSI (14)</span>
+                  </label>
+                  <label class="indicator-item">
+                    <input type="checkbox" id="ind-sma" data-indicator="sma"> <span>SMA (20)</span>
+                  </label>
+                  <label class="indicator-item">
+                    <input type="checkbox" id="ind-ema" data-indicator="ema"> <span>EMA (50)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
             <div id="chart-container"></div>
+            <div id="rsi-container" class="rsi-container hidden"></div>
             <div id="chart-info" class="chart-info"></div>
           </div>
 

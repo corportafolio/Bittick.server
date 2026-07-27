@@ -156,8 +156,13 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 
 /* --- CHART --- */
 #chart-section{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.chart-header-bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 12px;height:44px;border-bottom:1px solid var(--border);
+  background:var(--surface-2);
+}
 .timeframe-selector{
-  display:flex;gap:0;border-bottom:1px solid var(--border);overflow-x:auto;
+  display:flex;gap:0;border-bottom:none;overflow-x:auto;
 }
 .tf-btn{
   padding:8px 14px;font-size:.7rem;font-weight:700;text-transform:uppercase;
@@ -166,12 +171,30 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 }
 .tf-btn:hover{color:var(--text-secondary)}
 .tf-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
-#chart-container{height:340px;position:relative}
-.chart-info{
-  display:flex;justify-content:space-between;padding:8px 12px;
-  font-size:.7rem;color:var(--text-secondary);border-top:1px solid var(--border);
-  font-family:var(--mono);
+
+/* --- INDICATOR MENU (derecha) --- */
+.indicator-menu{position:relative}
+.indicator-btn{padding:6px;color:var(--text-secondary);border-radius:var(--radius-sm);transition:all .15s}
+.indicator-btn:hover{color:var(--accent);background:var(--accent-muted)}
+.indicator-dropdown{
+  position:absolute;top:100%;right:0;z-index:100;
+  background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px 0;min-width:160px;box-shadow:var(--shadow);
+  animation:fadeIn .15s ease;
 }
+.indicator-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;color:var(--text-secondary);font-size:.75rem}
+.indicator-item:hover{background:var(--surface-2);color:var(--text-primary)}
+.indicator-item input[type="checkbox"]{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+/* --- RSI CONTAINER (debajo del gráfico principal) --- */
+#chart-container{height:340px;position:relative}
+.rsi-container{
+  height:120px;border-top:1px solid var(--border);background:var(--surface-1);
+  transition:height .3s ease, opacity .3s ease, border-top .3s ease;
+}
+.rsi-container.hidden{height:0;opacity:0;border-top:none;overflow:hidden}
 .chart-placeholder{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   height:200px;color:var(--text-muted);font-size:.85rem;gap:8px;
