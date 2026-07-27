@@ -42,7 +42,6 @@ var store = {
       priceChange24h: 0,
       priceChangePercent: 0,
       klines: [],
-      klinesType: 'spot',
       klinesInterval: '15m',
       tradingZones: [],
       loading: false,
@@ -1017,8 +1016,7 @@ function loadChart() {
   }
 
   var interval = store.state.trading.klinesInterval;
-  var type = store.state.trading.klinesType;
-  api.get('/api/chart/klines?interval=' + interval + '&limit=500&type=' + type, false)
+  api.get('/api/chart/klines?interval=' + interval + '&limit=500', false)
     .then(function(json) {
       if (json.exito && json.data) {
         store.dispatch('SET_KLINES', json.data);
@@ -1031,8 +1029,7 @@ function loadChart() {
 
 function updateChart() {
   var interval = store.state.trading.klinesInterval;
-  var type = store.state.trading.klinesType;
-  api.get('/api/chart/klines?interval=' + interval + '&limit=500&type=' + type, false)
+  api.get('/api/chart/klines?interval=' + interval + '&limit=500', false)
     .then(function(json) {
       if (json.exito && json.data && json.data.length) {
         var lastKline = json.data[json.data.length - 1];

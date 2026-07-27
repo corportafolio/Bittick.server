@@ -177,7 +177,7 @@ function setData(data){
     candleSeries.setData(candles);
     volumeSeries.setData(volumes);
     // Skip fitContent for monthly data (sparse) - causes "Value is null"
-    if (candles.length > 100 && candles[0] && candles[candles.length - 1]) {
+    if (candles.length >= 2 && candles[0] && candles[candles.length - 1]) {
       var timeRange = candles[candles.length - 1].time - candles[0].time;
       var avgInterval = timeRange / candles.length;
       // If average interval > 15 days, it's likely monthly/weekly data
