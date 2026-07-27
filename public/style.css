@@ -60,15 +60,20 @@ input,select,textarea{font-family:inherit;font-size:inherit}
   border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;
 }
 
-/* --- LAYOUT (siempre visible) --- */
+/* --- LAYOUT --- */
 #main-layout{display:flex;height:calc(100dvh - var(--header-h))}
 
-/* --- SIDEBAR --- */
+/* --- SIDEBAR (colapsable) --- */
 #sidebar{
   width:var(--sidebar-w);flex-shrink:0;
   background:var(--surface-1);border-right:1px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden;
+  transition:width .25s ease, opacity .2s ease, border .2s ease;
 }
+#sidebar.collapsed{
+  width:0;border-right:none;opacity:0;pointer-events:none;
+}
+#content{flex:1;min-width:0;transition:flex .25s ease}
 #sidebar-header{
   display:flex;align-items:center;justify-content:space-between;
   padding:16px 20px;border-bottom:1px solid var(--border);

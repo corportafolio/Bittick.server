@@ -1753,6 +1753,9 @@ function bindEvents() {
       openPanel();
     }
   });
+  els['opp-toggle-btn']?.addEventListener('click', function() {
+    els['sidebar']?.classList.toggle('collapsed');
+  });
   els['panel-close']?.addEventListener('click', closePanel);
   els['backdrop']?.addEventListener('click', closePanel);
   els['sidebar-backdrop']?.addEventListener('click', function() {
