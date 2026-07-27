@@ -137,7 +137,8 @@ function cacheDom() {
     'settings-view','settings-content',
     'wallet-info','wallet-address','disconnect-btn',
     'modal-overlay','modal-content','toast-container',
-    'menu-account-btn','menu-account-text','menu-bot-img','header-bot-image','header-bot-img','header-bot-num'
+    'menu-account-btn','menu-account-text','menu-bot-img','header-bot-image','header-bot-img','header-bot-num',
+    'opp-toggle-btn','sidebar-backdrop'
   ].forEach(function(id) { els[id] = $(id); });
 }
 
@@ -1754,7 +1755,12 @@ function bindEvents() {
     }
   });
   els['opp-toggle-btn']?.addEventListener('click', function() {
-    els['sidebar']?.classList.toggle('collapsed');
+    if (window.innerWidth <= 1024) {
+      els['sidebar']?.classList.toggle('sidebar-open');
+      els['sidebar-backdrop']?.classList.toggle('visible');
+    } else {
+      els['sidebar']?.classList.toggle('collapsed');
+    }
   });
   els['panel-close']?.addEventListener('click', closePanel);
   els['backdrop']?.addEventListener('click', closePanel);
