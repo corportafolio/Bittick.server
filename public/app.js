@@ -139,7 +139,8 @@ function cacheDom() {
     'modal-overlay','modal-content','toast-container',
     'menu-account-btn','menu-account-text','menu-bot-img','header-bot-image','header-bot-img','header-bot-num',
     'opp-toggle-btn','sidebar-backdrop',
-    'indicator-menu','indicator-btn','indicator-dropdown','rsi-container'
+    'indicator-menu','indicator-btn','indicator-dropdown','rsi-container',
+    'ind-rsi','ind-sma','ind-ema'
   ].forEach(function(id) { els[id] = $(id); });
 }
 
