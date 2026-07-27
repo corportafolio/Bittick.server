@@ -1071,6 +1071,12 @@ function renderChart(data) {
     if (isRSIEnabled()) {
       renderRSI(data);
     }
+    if (isSMAEnabled()) {
+      BittickChart.addSMA && BittickChart.addSMA(data, 20);
+    }
+    if (isEMAEnabled()) {
+      BittickChart.addEMA && BittickChart.addEMA(data, 50);
+    }
   }
   renderChartInfo(data);
 }
@@ -1095,6 +1101,16 @@ var rsiChart = null;
 
 function isRSIEnabled() {
   var cb = els['ind-rsi'];
+  return cb && cb.checked;
+}
+
+function isSMAEnabled() {
+  var cb = els['ind-sma'];
+  return cb && cb.checked;
+}
+
+function isEMAEnabled() {
+  var cb = els['ind-ema'];
   return cb && cb.checked;
 }
 

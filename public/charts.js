@@ -17,6 +17,10 @@ var rsiChart = null;
 var rsiSeries = null;
 var rsiContainer = null;
 
+// SMA/EMA series on main chart
+var smaSeries = null;
+var emaSeries = null;
+
 function render(containerEl, data, options){
   container = containerEl;
   if(!container || !window.LightweightCharts) return;
@@ -448,9 +452,89 @@ function removeRSI() {
   if (c) c.classList.add('hidden');
 }
 
+function calcSMA(closes, period) {
+  var result = [];
+  for (var i = period - 1; i < closes.length; i++) {
+    var sum = 0;
+    for (var j = i - period + 1; j <= i; j++) sum += closes[j];
+    result.push(sum / period);
+  }
+  return result;
+}
+
+function calcEMA(closes, period) {
+  if (closes.length < period) return [];
+  var k = 2 / (period + 1);
+  var ema = [];
+  var sum = 0;
+  for (var i = 0; i < period; i++) sum += closes[i];
+  ema.push(sum / period);
+  for (var j = period; j < closes.length; j++) {
+    ema.push(closes[j] * k + ema[ema.length - 1] * (1 - k));
+  }
+  return ema;
+}
+
+function addSMA(data, period) {
+  if (!chart || !candleSeries) return;
+  removeSMA();
+  var closes = data.map(function(d) { return parseFloat(d.close); });
+  var times = data.map(function(d) { return Math.floor((d.openTime || d.time || 0) / 1000); });
+  var vals = calcSMA(closes, period);
+  if (!vals.length) return;
+  var offset = closes.length - vals.length;
+  var smaData = vals.map(function(v, i) {
+    return { time: times[i + offset], value: v };
+  });
+  smaSeries = chart.addLineSeries({
+    color: '#2196F3',
+    lineWidth: 1,
+    lastValueVisible: false,
+    crosshairMarkerVisible: false,
+    priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
+  });
+  smaSeries.setData(smaData);
+}
+
+function removeSMA() {
+  if (smaSeries) {
+    smaSeries.remove();
+    smaSeries = null;
+  }
+}
+
+function addEMA(data, period) {
+  if (!chart || !candleSeries) return;
+  removeEMA();
+  var closes = data.map(function(d) { return parseFloat(d.close); });
+  var times = data.map(function(d) { return Math.floor((d.openTime || d.time || 0) / 1000); });
+  var vals = calcEMA(closes, period);
+  if (!vals.length) return;
+  var offset = closes.length - vals.length;
+  var emaData = vals.map(function(v, i) {
+    return { time: times[i + offset], value: v };
+  });
+  emaSeries = chart.addLineSeries({
+    color: '#E91E63',
+    lineWidth: 1,
+    lastValueVisible: false,
+    crosshairMarkerVisible: false,
+    priceFormat: { type: 'price', precision: 2, minMove: 0.01 }
+  });
+  emaSeries.setData(emaData);
+}
+
+function removeEMA() {
+  if (emaSeries) {
+    emaSeries.remove();
+    emaSeries = null;
+  }
+}
+
 return { render: render, setData: setData, updateLastCandle: updateLastCandle,
          setTradingZones: setTradingZones, clearTradingZones: clearTradingZones,
-         destroy: destroy, renderRSI: renderRSI, removeRSI: removeRSI };
+         destroy: destroy, renderRSI: renderRSI, removeRSI: removeRSI,
+         addSMA: addSMA, removeSMA: removeSMA, addEMA: addEMA, removeEMA: removeEMA };
 
 })();
 
