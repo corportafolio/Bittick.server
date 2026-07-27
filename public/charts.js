@@ -10,6 +10,7 @@ var candleSeries = null;
 var volumeSeries = null;
 var container = null;
 var tradingZoneMarkers = [];
+var isSparseData = false;
 
 function render(containerEl, data, options){
   container = containerEl;
@@ -39,6 +40,8 @@ function render(containerEl, data, options){
   };
 
   var doRender = function(containerWidth, containerHeight) {
+    // Reset sparse data flag for new render
+    isSparseData = false;
     // Validate data before creating chart
     if (!data || !data.length) {
       console.warn('No chart data provided');
@@ -103,11 +106,15 @@ function render(containerEl, data, options){
       setData(data);
 
       var ro = new ResizeObserver(function(entries){
-        if(chart && entries[0]){
-          chart.applyOptions({
-            width: entries[0].contentRect.width,
-            height: entries[0].contentRect.height
-          });
+        if(chart && entries[0] && !isSparseData){
+          try {
+            chart.applyOptions({
+              width: entries[0].contentRect.width,
+              height: entries[0].contentRect.height
+            });
+          } catch (e) {
+            console.warn('ResizeObserver applyOptions failed:', e.message);
+          }
         }
       });
       ro.observe(container);
@@ -175,6 +182,7 @@ function setData(data){
       var avgInterval = timeRange / candles.length;
       // If average interval > 15 days, it's likely monthly/weekly data
       if (avgInterval > 15 * 24 * 3600) {
+        isSparseData = true;
         console.log('Sparse data detected (interval:', avgInterval / 86400, 'days), skipping fitContent');
       } else {
         chart.timeScale().fitContent();
