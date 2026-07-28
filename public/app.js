@@ -137,7 +137,7 @@ function cacheDom() {
     'settings-view','settings-content',
     'wallet-info','wallet-address','disconnect-btn',
     'modal-overlay','modal-content','toast-container',
-    'menu-account-btn','menu-account-text','menu-bot-img','header-bot-image','header-bot-img','header-bot-num',
+    'menu-account-btn','menu-account-text','menu-bot-img',
     'opp-toggle-btn','sidebar-backdrop',
     'indicator-menu','indicator-btn','indicator-dropdown','rsi-container',
     'ind-rsi','ind-sma','ind-ema',
@@ -603,9 +603,6 @@ window.onUseBot = onUseBot;
 function updateHeaderBotImage() {
   var auth = store.state.auth;
   var botNum = auth.botNum;
-  var headerImg = document.getElementById('header-bot-img');
-  var headerNum = document.getElementById('header-bot-num');
-  var headerContainer = document.getElementById('header-bot-image');
   var menuImg = document.getElementById('menu-bot-img');
   var menuBtn = document.getElementById('menu-account-btn');
   var menuText = document.getElementById('menu-account-text');
@@ -613,14 +610,10 @@ function updateHeaderBotImage() {
   if (botNum) {
     var cachedImage = getCachedBotImage(botNum);
     if (cachedImage) {
-      if (headerImg) headerImg.src = 'data:image/png;base64,' + cachedImage;
       if (menuImg) menuImg.src = 'data:image/png;base64,' + cachedImage;
     }
-    if (headerContainer) headerContainer.classList.remove('hidden');
     if (menuImg) menuImg.classList.remove('hidden');
-    if (headerNum) headerNum.textContent = '#' + botNum;
   } else {
-    if (headerContainer) headerContainer.classList.add('hidden');
     if (menuImg) menuImg.classList.add('hidden');
   }
 }
