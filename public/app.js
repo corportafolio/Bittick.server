@@ -1847,9 +1847,20 @@ function getDefaultLevels(mode) {
 }
 
 function renderLevelsTable(levels, mode) {
-  if (!levels || !levels.length) {
-    levels = getDefaultLevels(mode);
+  var rows = getDefaultLevels(mode);
+  if (levels && levels.length) {
+    rows.forEach(function(row) {
+      var saved = levels.find(function(l) { return l.level === row.level; });
+      if (saved) {
+        row.enabled = saved.enabled;
+        row.min_score = saved.min_score;
+        row.min_confidence = saved.min_confidence;
+        row.position_size_usdt = saved.position_size_usdt;
+        row.leverage = saved.leverage;
+      }
+    });
   }
+  levels = rows;
   var html = '<table style="width:100%;font-size:.78rem;border-collapse:collapse">';
   html += '<tr style="color:var(--text-muted);text-align:center;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px">';
   html += '<th style="text-align:left">Lvl</th>';
