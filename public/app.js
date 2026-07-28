@@ -1745,12 +1745,21 @@ function renderSettings() {
   var botNum = auth.botNum || '??';
 
   el.innerHTML =
+    '<div class="two-col-grid">' +
     '<div class="panel-card settings-card">' +
       '<h3>CUENTA BITTICK</h3>' +
       '<div class="settings-row">' +
         '<span class="settings-label">Bot</span>' +
-        '<span class="settings-value"><img src="' + botImage(botNum) + '" alt="Bot" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display=\'none\'">Bot #' + botNum + ' — ' + tier + ' · ' + truncateAddress(addr) + ' · ' + (inscId.length > 20 ? inscId.slice(0, 12) + '...' + inscId.slice(-8) : inscId) + '</span>' +
+        '<span class="settings-value"><img src="' + botImage(botNum) + '" alt="Bot" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display=\'none\'">Bot #' + botNum + ' — ' + tier + '</span>' +
       '</div>' +
+      '<div class="settings-row"><span class="settings-label">Wallet</span><span class="settings-value">' + truncateAddress(addr) + '</span></div>' +
+      '<div class="settings-row"><span class="settings-label">Inscripción</span><span class="settings-value">' + (inscId.length > 20 ? inscId.slice(0, 12) + '...' + inscId.slice(-8) : inscId) + '</span></div>' +
+    '</div>' +
+    '<div class="panel-card settings-card">' +
+      '<h3>PERMISOS</h3>' +
+      '<div class="settings-row"><span class="settings-label">Notificaciones</span><span class="settings-value" id="s-notif-status">' + ('Notification' in window ? Notification.permission : 'No soportado') + '</span></div>' +
+      '<button class="btn btn-secondary btn-sm" style="margin-top:8px" id="enable-notif-btn">ACTIVAR NOTIFICACIONES</button>' +
+    '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
       '<h3>PERMISOS</h3>' +
