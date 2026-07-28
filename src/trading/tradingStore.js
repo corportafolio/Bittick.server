@@ -406,8 +406,15 @@ function updatePositionPrice(id, currentPrice, pnl) {
   if (pos && (!pos.entry_price || pos.entry_price === 0)) {
     db.run("UPDATE positions SET entry_price = ?, current_price = ? WHERE id = ?", [currentPrice, currentPrice, id]);
   } else if (currentPrice && pnl !== undefined) {
-    db.run("UPDATE positions SET current_price = ?, pnl = ?, pnl_percent = ? WHERE id = ?",
-      [currentPrice, pnl.pnl, pnl.pnlPercent, id]);
+    // If quantity is 0, calculate from usd_amount / entry_price
+    if (pos && (!pos.quantity || pos.quantity === 0) && pos.usd_amount && pos.entry_price > 0) {
+      const calcQuantity = pos.usd_amount / pos.entry_price;
+      db.run("UPDATE positions SET current_price = ?, pnl = ?, pnl_percent = ?, quantity = ? WHERE id = ?",
+        [currentPrice, pnl.pnl, pnl.pnlPercent, calcQuantity, id]);
+    } else {
+      db.run("UPDATE positions SET current_price = ?, pnl = ?, pnl_percent = ? WHERE id = ?",
+        [currentPrice, pnl.pnl, pnl.pnlPercent, id]);
+    }
   } else if (currentPrice) {
     db.run("UPDATE positions SET current_price = ? WHERE id = ?", [currentPrice, id]);
   }

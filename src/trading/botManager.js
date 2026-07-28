@@ -168,12 +168,14 @@ async function monitorPositions() {
       for (const pos of allOpenPositions) {
         const currentPrice = pos.bot_type === 'spot' ? spotPrice : futuresPrice;
         
-        // Calculate PnL
+        // Calculate PnL with fallback for quantity=0 (use usd_amount / entry_price)
         const entry = pos.entry_price || currentPrice; // fallback if entry_price is 0
+        const quantity = pos.quantity && pos.quantity > 0 ? pos.quantity
+          : (pos.usd_amount && entry > 0 ? pos.usd_amount / entry : 0);
         const pnlAmount = pos.strategy_type === 'long'
-          ? (currentPrice - entry) * pos.quantity
-          : (entry - currentPrice) * pos.quantity;
-        const pnlPercent = entry > 0 ? ((pnlAmount / (entry * pos.quantity)) * 100) : 0;
+          ? (currentPrice - entry) * quantity
+          : (entry - currentPrice) * quantity;
+        const pnlPercent = (entry > 0 && quantity > 0) ? ((pnlAmount / (entry * quantity)) * 100) : 0;
         const pnl = { pnl: parseFloat(pnlAmount.toFixed(2)), pnlPercent: parseFloat(pnlPercent.toFixed(2)) };
 
         store.updatePositionPrice(pos.id, currentPrice, pnl);
@@ -197,10 +199,12 @@ async function monitorPositions() {
 
       for (const pos of positions) {
         const entry = pos.entry_price;
+        const quantity = pos.quantity && pos.quantity > 0 ? pos.quantity
+          : (pos.usd_amount && entry > 0 ? pos.usd_amount / entry : 0);
         const pnlAmount = pos.strategy_type === 'long'
-          ? (currentPrice - entry) * pos.quantity
-          : (entry - currentPrice) * pos.quantity;
-        const pnlPercent = ((pnlAmount / (entry * pos.quantity)) * 100);
+          ? (currentPrice - entry) * quantity
+          : (entry - currentPrice) * quantity;
+        const pnlPercent = (entry > 0 && quantity > 0) ? ((pnlAmount / (entry * quantity)) * 100) : 0;
         const pnl = { pnl: parseFloat(pnlAmount.toFixed(2)), pnlPercent: parseFloat(pnlPercent.toFixed(2)) };
 
         store.updatePositionPrice(pos.id, currentPrice, pnl);
