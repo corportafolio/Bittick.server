@@ -1363,23 +1363,17 @@ function renderOpportunities() {
   if (!list) return;
 
   var opps = store.state.trading.opportunities || [];
-  var premium = isPremium();
 
-  if (!premium) {
-    opps = opps.filter(function(opp) {
-      var score = parseFloat(opp.score || 0);
-      var conf = parseFloat(opp.confidence || 0);
-      return score >= 5 && conf >= 5;
-    });
-  }
+  opps = opps.filter(function(opp) {
+    var score = parseFloat(opp.score || 0);
+    var conf = parseFloat(opp.confidence || 0);
+    return score >= 5 && conf >= 5;
+  });
 
   if (countEl) countEl.textContent = opps.length;
 
   if (!opps.length) {
-    var msg = premium
-      ? 'No hay oportunidades en este momento'
-      : 'Conecta un Bittick Agent para ver oportunidades score ≥5 y confianza ≥5';
-    safeSetHTML(list, '<p class="empty-text" style="padding:32px 0">' + msg + '</p>');
+    safeSetHTML(list, '<p class="empty-text" style="padding:32px 0">No hay oportunidades score ≥5 en este momento</p>');
     return;
   }
 
@@ -1792,34 +1786,6 @@ function renderSettings() {
     '<div class="panel-card settings-card">' +
       '<h3>NIVELES FUTUROS <span class="bot-level-status ' + (settings.preferences.futures_enabled ? 'active' : 'inactive') + '"><span class="status-dot ' + (settings.preferences.futures_enabled ? 'green' : 'red') + '"></span>' + (settings.preferences.futures_enabled ? 'Activo' : 'Inactivo') + '</span></h3>' +
       '<div id="futures-levels-content">' + renderLevelsTable(settings.levels.futures || [], 'futures') + '</div>' +
-    '</div>' +
-    '<div class="panel-card settings-card">' +
-      '<h3>PREFERENCIAS</h3>' +
-      '<div class="settings-row"><span class="settings-label">Spot habilitado</span><div class="toggle-switch ' + (settings.preferences.spot_enabled ? 'on' : '') + '" data-toggle="spot_enabled"></div></div>' +
-      '<div class="settings-row"><span class="settings-label">Futuros habilitado</span><div class="toggle-switch ' + (settings.preferences.futures_enabled ? 'on' : '') + '" data-toggle="futures_enabled"></div></div>' +
-      '<div class="settings-row"><span class="settings-label">Tamaño posición Spot</span><span class="settings-value">' + (settings.preferences.spot_position_size || 10) + ' USDT</span></div>' +
-      '<div class="settings-row"><span class="settings-label">Tamaño posición Futuros</span><span class="settings-value">' + (settings.preferences.futures_position_size || 10) + ' USDT</span></div>' +
-      '<div class="settings-row"><span class="settings-label">Max posiciones Spot</span><span class="settings-value">' + (settings.preferences.spot_max_positions || 5) + '</span></div>' +
-      '<div class="settings-row"><span class="settings-label">Max posiciones Futuros</span><span class="settings-value">' + (settings.preferences.futures_max_positions || 5) + '</span></div>' +
-      '<div class="settings-row"><span class="settings-label">Min score Spot</span><span class="settings-value">' + (settings.preferences.spot_min_score || 6) + '</span></div>' +
-      '<div class="settings-row"><span class="settings-label">Min score Futuros</span><span class="settings-value">' + (settings.preferences.futures_min_score || 7) + '</span></div>' +
-      '<button class="btn btn-secondary btn-sm" style="margin-top:8px" id="edit-prefs-btn">EDITAR PREFERENCIAS</button>' +
-      '<div id="prefs-form" class="hidden">' +
-        '<div class="settings-form">' +
-          '<label style="color:var(--text-secondary);font-size:.75rem">SPOT</label>' +
-          '<input type="number" class="form-input" id="inp-spot-pos-size" placeholder="Tamaño posición Spot (USDT)" step="1" min="1">' +
-          '<input type="number" class="form-input" id="inp-spot-max-pos" placeholder="Max posiciones Spot" step="1" min="1" max="20">' +
-          '<input type="number" class="form-input" id="inp-spot-min-score" placeholder="Min score Spot" step="1" min="1" max="10">' +
-          '<label style="color:var(--text-secondary);font-size:.75rem">FUTUROS</label>' +
-          '<input type="number" class="form-input" id="inp-futures-pos-size" placeholder="Tamaño posición Futuros (USDT)" step="1" min="1">' +
-          '<input type="number" class="form-input" id="inp-futures-max-pos" placeholder="Max posiciones Futuros" step="1" min="1" max="20">' +
-          '<input type="number" class="form-input" id="inp-futures-min-score" placeholder="Min score Futuros" step="1" min="1" max="10">' +
-          '<div class="form-row">' +
-            '<button class="btn btn-primary btn-sm" id="save-prefs-btn">GUARDAR</button>' +
-            '<button class="btn btn-secondary btn-sm" id="cancel-prefs-btn">CANCELAR</button>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
       '<h3>INFORMACIÓN</h3>' +

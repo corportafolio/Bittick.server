@@ -251,7 +251,7 @@ function insertOpportunity(op) {
 }
 
 function getOpportunities(limit = 50, offset = 0, since = null, botType = null) {
-  let sql = "SELECT * FROM opportunities";
+  let sql = "SELECT * FROM opportunities WHERE score >= 5 AND confidence >= 5";
   const conditions = [];
   const params = [];
   if (since) {
@@ -264,7 +264,7 @@ function getOpportunities(limit = 50, offset = 0, since = null, botType = null) 
     params.push(botType);
   }
   if (conditions.length > 0) {
-    sql += " WHERE " + conditions.join(" AND ");
+    sql += " AND " + conditions.join(" AND ");
   }
   sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
   params.push(limit, offset);
