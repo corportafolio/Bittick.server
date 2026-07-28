@@ -1749,10 +1749,8 @@ function renderSettings() {
       '<h3>CUENTA BITTICK</h3>' +
       '<div class="settings-row">' +
         '<span class="settings-label">Bot</span>' +
-        '<span class="settings-value"><img src="' + botImage(botNum) + '" alt="Bot" style="width:24px;height:24px;border-radius:50%;vertical-align:middle;margin-right:6px" onerror="this.style.display=\'none\'">Bot #' + botNum + ' — ' + tier + '</span>' +
+        '<span class="settings-value"><img src="' + botImage(botNum) + '" alt="Bot" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display=\'none\'">Bot #' + botNum + ' — ' + tier + ' · ' + truncateAddress(addr) + ' · ' + (inscId.length > 20 ? inscId.slice(0, 12) + '...' + inscId.slice(-8) : inscId) + '</span>' +
       '</div>' +
-      '<div class="settings-row"><span class="settings-label">Wallet</span><span class="settings-value">' + truncateAddress(addr) + '</span></div>' +
-      '<div class="settings-row"><span class="settings-label">Inscripción</span><span class="settings-value">' + (inscId.length > 20 ? inscId.slice(0, 12) + '...' + inscId.slice(-8) : inscId) + '</span></div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
       '<h3>PERMISOS</h3>' +
