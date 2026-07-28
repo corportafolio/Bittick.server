@@ -236,12 +236,18 @@ router.get('/strategies/levels/:inscriptionId/:mode', (req, res) => {
     const { inscriptionId, mode } = req.params;
     let levels = store.getBotStrategiesByLevel(inscriptionId, mode);
     if (!levels || levels.length === 0) {
+      const isSpot = mode === 'spot';
       levels = [
-        { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 3 },
-        { level: 9, enabled: 1, position_size_usdt: 20, min_score: 9, min_confidence: 9, leverage: 3 },
-        { level: 8, enabled: 1, position_size_usdt: 40, min_score: 8, min_confidence: 8, leverage: 3 },
-        { level: 7, enabled: 1, position_size_usdt: 20, min_score: 7, min_confidence: 7, leverage: 2 },
-        { level: 6, enabled: 1, position_size_usdt: 10, min_score: 6, min_confidence: 6, leverage: 1 }
+        { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 10 },
+        { level: 9,  enabled: 1, position_size_usdt: 20, min_score: 9,  min_confidence: 9,  leverage: 10 },
+        { level: 8,  enabled: 1, position_size_usdt: 40, min_score: 8,  min_confidence: 8,  leverage: 10 },
+        { level: 7,  enabled: 1, position_size_usdt: 20, min_score: 7,  min_confidence: 7,  leverage: 5  },
+        { level: 6,  enabled: 1, position_size_usdt: 10, min_score: isSpot ? 7 : 8, min_confidence: 6, leverage: 3 },
+        { level: 5,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+        { level: 4,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+        { level: 3,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+        { level: 2,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+        { level: 1,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 }
       ];
     }
     res.json({ exito: true, data: levels });
@@ -257,16 +263,34 @@ router.get('/strategies/levels/:inscriptionId', (req, res) => {
     const spotLevels = store.getBotStrategiesByLevel(inscriptionId, 'spot');
     const futuresLevels = store.getBotStrategiesByLevel(inscriptionId, 'futures');
     
-    const defaultLevels = [
-      { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 3 },
-      { level: 9, enabled: 1, position_size_usdt: 20, min_score: 9, min_confidence: 9, leverage: 3 },
-      { level: 8, enabled: 1, position_size_usdt: 40, min_score: 8, min_confidence: 8, leverage: 3 },
-      { level: 7, enabled: 1, position_size_usdt: 20, min_score: 7, min_confidence: 7, leverage: 2 },
-      { level: 6, enabled: 1, position_size_usdt: 10, min_score: 6, min_confidence: 6, leverage: 1 }
+    const spotDefaults = [
+      { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 10 },
+      { level: 9,  enabled: 1, position_size_usdt: 20, min_score: 9,  min_confidence: 9,  leverage: 10 },
+      { level: 8,  enabled: 1, position_size_usdt: 40, min_score: 8,  min_confidence: 8,  leverage: 10 },
+      { level: 7,  enabled: 1, position_size_usdt: 20, min_score: 7,  min_confidence: 7,  leverage: 5  },
+      { level: 6,  enabled: 1, position_size_usdt: 10, min_score: 7,  min_confidence: 6,  leverage: 3  },
+      { level: 5,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+      { level: 4,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+      { level: 3,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+      { level: 2,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+      { level: 1,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 }
     ];
     
-    const spot = (spotLevels && spotLevels.length > 0) ? spotLevels : defaultLevels;
-    const futures = (futuresLevels && futuresLevels.length > 0) ? futuresLevels : defaultLevels;
+    const futuresDefaults = [
+      { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 10 },
+      { level: 9,  enabled: 1, position_size_usdt: 20, min_score: 9,  min_confidence: 9,  leverage: 10 },
+      { level: 8,  enabled: 1, position_size_usdt: 40, min_score: 8,  min_confidence: 8,  leverage: 10 },
+      { level: 7,  enabled: 1, position_size_usdt: 20, min_score: 7,  min_confidence: 7,  leverage: 5  },
+      { level: 6,  enabled: 1, position_size_usdt: 10, min_score: 8,  min_confidence: 6,  leverage: 3  },
+      { level: 5,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+      { level: 4,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+      { level: 3,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+      { level: 2,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+      { level: 1,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 }
+    ];
+    
+    const spot = (spotLevels && spotLevels.length > 0) ? spotLevels : spotDefaults;
+    const futures = (futuresLevels && futuresLevels.length > 0) ? futuresLevels : futuresDefaults;
     
     res.json({ exito: true, data: { spot, futures } });
   } catch (error) {

@@ -1786,11 +1786,11 @@ function renderSettings() {
       '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
-      '<h3>NIVELES SPOT</h3>' +
+      '<h3>NIVELES SPOT <span class="bot-level-status ' + (settings.preferences.spot_enabled ? 'active' : 'inactive') + '"><span class="status-dot ' + (settings.preferences.spot_enabled ? 'green' : 'red') + '"></span>' + (settings.preferences.spot_enabled ? 'Activo' : 'Inactivo') + '</span></h3>' +
       '<div id="spot-levels-content">' + renderLevelsTable(settings.levels.spot || [], 'spot') + '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
-      '<h3>NIVELES FUTUROS</h3>' +
+      '<h3>NIVELES FUTUROS <span class="bot-level-status ' + (settings.preferences.futures_enabled ? 'active' : 'inactive') + '"><span class="status-dot ' + (settings.preferences.futures_enabled ? 'green' : 'red') + '"></span>' + (settings.preferences.futures_enabled ? 'Activo' : 'Inactivo') + '</span></h3>' +
       '<div id="futures-levels-content">' + renderLevelsTable(settings.levels.futures || [], 'futures') + '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
@@ -1830,30 +1830,48 @@ function renderSettings() {
   bindSettingsEvents();
 }
 
+function getDefaultLevels(mode) {
+  var isSpot = mode === 'spot';
+  return [
+    { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 10 },
+    { level: 9,  enabled: 1, position_size_usdt: 20, min_score: 9,  min_confidence: 9,  leverage: 10 },
+    { level: 8,  enabled: 1, position_size_usdt: 40, min_score: 8,  min_confidence: 8,  leverage: 10 },
+    { level: 7,  enabled: 1, position_size_usdt: 20, min_score: 7,  min_confidence: 7,  leverage: 5  },
+    { level: 6,  enabled: 1, position_size_usdt: 10, min_score: isSpot ? 7 : 8, min_confidence: 6, leverage: 3 },
+    { level: 5,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+    { level: 4,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+    { level: 3,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+    { level: 2,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+    { level: 1,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 }
+  ];
+}
+
 function renderLevelsTable(levels, mode) {
   if (!levels || !levels.length) {
-    levels = [
-      { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 3 },
-      { level: 9, enabled: 1, position_size_usdt: 20, min_score: 9, min_confidence: 9, leverage: 3 },
-      { level: 8, enabled: 1, position_size_usdt: 40, min_score: 8, min_confidence: 8, leverage: 3 },
-      { level: 7, enabled: 1, position_size_usdt: 20, min_score: 7, min_confidence: 7, leverage: 2 },
-      { level: 6, enabled: 1, position_size_usdt: 10, min_score: 6, min_confidence: 6, leverage: 1 }
-    ];
+    levels = getDefaultLevels(mode);
   }
-  var html = '<table style="width:100%;font-size:.8rem;border-collapse:collapse">';
-  html += '<tr style="color:var(--text-muted);text-align:left"><th>Lvl</th><th>On</th><th>Monto</th><th>Score</th><th>Conf</th><th>Lev</th></tr>';
+  var html = '<table style="width:100%;font-size:.78rem;border-collapse:collapse">';
+  html += '<tr style="color:var(--text-muted);text-align:center;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px">';
+  html += '<th style="text-align:left">Lvl</th>';
+  html += '<th>Score</th>';
+  html += '<th>Conf</th>';
+  html += '<th>Monto USD</th>';
+  html += '<th>leverage</th>';
+  html += '<th>On</th>';
+  html += '</tr>';
   levels.forEach(function(l) {
-    html += '<tr style="border-top:1px solid var(--border)">' +
-      '<td>' + l.level + '</td>' +
-      '<td><div class="toggle-switch ' + (l.enabled ? 'on' : '') + '" style="width:32px;height:18px" data-level="' + l.level + '" data-mode="' + mode + '"></div></td>' +
-      '<td>' + l.position_size_usdt + '</td>' +
-      '<td>' + l.min_score + '</td>' +
-      '<td>' + l.min_confidence + '</td>' +
-      '<td>' + l.leverage + 'x</td>' +
-    '</tr>';
+    var hasValues = (l.min_score > 0 || l.min_confidence > 0 || l.position_size_usdt > 0);
+    html += '<tr style="border-top:1px solid var(--border)">';
+    html += '<td style="text-align:left;font-weight:600;color:' + (hasValues ? 'var(--text-primary)' : 'var(--text-muted)') + '">' + l.level + '</td>';
+    html += '<td><input class="level-input" type="number" min="1" max="10" step="1" value="' + (l.min_score || '') + '" placeholder="—" data-mode="' + mode + '" data-level="' + l.level + '" data-field="min_score"></td>';
+    html += '<td><input class="level-input" type="number" min="1" max="10" step="1" value="' + (l.min_confidence || '') + '" placeholder="—" data-mode="' + mode + '" data-level="' + l.level + '" data-field="min_confidence"></td>';
+    html += '<td><input class="level-input" type="number" min="0" step="1" value="' + (l.position_size_usdt || '') + '" placeholder="—" data-mode="' + mode + '" data-level="' + l.level + '" data-field="position_size_usdt"></td>';
+    html += '<td><input class="level-input" type="number" min="1" max="125" step="1" value="' + (l.leverage || 1) + '" placeholder="1" data-mode="' + mode + '" data-level="' + l.level + '" data-field="leverage"></td>';
+    html += '<td style="text-align:center"><div class="toggle-switch ' + (l.enabled ? 'on' : '') + '" style="width:32px;height:18px;cursor:pointer" data-level-toggle="' + l.level + '" data-mode="' + mode + '"></div></td>';
+    html += '</tr>';
   });
   html += '</table>';
-  html += '<button class="btn btn-primary btn-sm" style="margin-top:8px;width:100%" data-save-levels="' + mode + '">GUARDAR ' + mode.toUpperCase() + '</button>';
+  html += '<button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%" data-save-levels="' + mode + '">GUARDAR ' + mode.toUpperCase() + '</button>';
   return html;
 }
 
@@ -1946,12 +1964,33 @@ function bindSettingsEvents() {
     });
   });
 
+  el.querySelectorAll('[data-level-toggle]').forEach(function(tog) {
+    tog.addEventListener('click', function() {
+      tog.classList.toggle('on');
+    });
+  });
+
   el.querySelectorAll('[data-save-levels]').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var mode = btn.dataset.saveLevels;
-      var levels = settings.levels[mode] || [];
+      var levels = [];
+      for (var i = 1; i <= 10; i++) {
+        var scoreInput = el.querySelector('[data-mode="' + mode + '"][data-level="' + i + '"][data-field="min_score"]');
+        var confInput = el.querySelector('[data-mode="' + mode + '"][data-level="' + i + '"][data-field="min_confidence"]');
+        var amountInput = el.querySelector('[data-mode="' + mode + '"][data-level="' + i + '"][data-field="position_size_usdt"]');
+        var levInput = el.querySelector('[data-mode="' + mode + '"][data-level="' + i + '"][data-field="leverage"]');
+        var togEl = el.querySelector('[data-level-toggle="' + i + '"][data-mode="' + mode + '"]');
+        levels.push({
+          level: i,
+          enabled: togEl && togEl.classList.contains('on') ? 1 : 0,
+          min_score: parseInt(scoreInput && scoreInput.value) || 0,
+          min_confidence: parseInt(confInput && confInput.value) || 0,
+          position_size_usdt: parseFloat(amountInput && amountInput.value) || 0,
+          leverage: parseInt(levInput && levInput.value) || 1
+        });
+      }
       api.post('/api/trading/strategies/levels', { inscription_id: auth.selectedInscription, mode: mode, levels: levels }, true)
-        .then(function() { toast('Niveles ' + mode + ' guardados', 'success'); })
+        .then(function() { toast('Niveles ' + mode + ' guardados', 'success'); settings.levels[mode] = levels; })
         .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
   });

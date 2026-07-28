@@ -334,8 +334,19 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .settings-card{margin-bottom:16px}
 .settings-card h3{
   font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
-  color:var(--text-secondary);margin-bottom:12px;
+  color:var(--text-secondary);margin-bottom:12px;display:flex;align-items:center;gap:8px;
 }
+.bot-level-status{font-size:.65rem;font-weight:400;text-transform:none;letter-spacing:0;display:inline-flex;align-items:center;gap:4px}
+.bot-level-status.active{color:var(--positive)}
+.bot-level-status.inactive{color:var(--text-muted)}
+.level-input{
+  width:100%;padding:4px 6px;background:transparent;border:none;
+  color:var(--text-primary);font-family:var(--mono);font-size:.8rem;text-align:center;
+}
+.level-input:focus{outline:none;background:var(--surface-2);border-radius:4px}
+.level-input::placeholder{color:var(--text-muted)}
+.level-input::-webkit-inner-spin-button,.level-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.level-input[type=number]{-moz-appearance:textfield}
 .settings-row{
   display:flex;align-items:center;justify-content:space-between;
   padding:12px 16px;background:var(--surface-2);border-radius:var(--radius-sm);
