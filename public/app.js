@@ -1762,11 +1762,6 @@ function renderSettings() {
     '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
-      '<h3>PERMISOS</h3>' +
-      '<div class="settings-row"><span class="settings-label">Notificaciones</span><span class="settings-value" id="s-notif-status">' + ('Notification' in window ? Notification.permission : 'No soportado') + '</span></div>' +
-      '<button class="btn btn-secondary btn-sm" style="margin-top:8px" id="enable-notif-btn">ACTIVAR NOTIFICACIONES</button>' +
-    '</div>' +
-    '<div class="panel-card settings-card">' +
       '<h3>CLAVES API BINANCE</h3>' +
       '<div class="settings-row"><span class="settings-label">Spot</span><span class="settings-value ' + (settings.apiKeys.spot?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.spot?.hasKey ? 'Configurada' : 'Sin configurar') + '</span></div>' +
       '<div class="settings-row"><span class="settings-label">Futuros</span><span class="settings-value ' + (settings.apiKeys.futures?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.futures?.hasKey ? 'Configurada' : 'Sin configurar') + '</span></div>' +
