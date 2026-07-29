@@ -99,6 +99,16 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .opp-card-change{display:flex;align-items:center;gap:4px}
 .opp-card-spot{color:var(--info);font-size:.65rem;margin-top:4px}
 .opp-card-footer{display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:.6rem;color:var(--text-secondary)}
+.opp-card-row{display:flex;align-items:center;gap:12px;font-size:.65rem;margin-top:4px;flex-wrap:wrap}
+.opp-card-row .label{color:var(--text-secondary);white-space:nowrap}
+.opp-card-row .value{font-family:var(--mono);color:var(--text-primary);white-space:nowrap}
+.opp-card-analysis{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:.6rem}
+.analysis-text{color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80%}
+.analysis-expand{cursor:pointer;color:var(--accent);font-size:.7rem;flex-shrink:0;margin-left:8px;opacity:.7;transition:opacity .2s}
+.analysis-expand:hover{opacity:1}
+.analysis-detail{display:none;width:100%;color:var(--text-secondary);font-size:.6rem;line-height:1.5;margin-top:4px}
+.opp-card-analysis.expanded .analysis-text{white-space:normal;max-width:none;overflow:visible}
+.opp-card-analysis.expanded .analysis-detail{display:block}
 
 /* --- SKELETON --- */
 .skeleton-card{
@@ -334,8 +344,26 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 .settings-card{margin-bottom:16px}
 .settings-card h3{
   font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
-  color:var(--text-secondary);margin-bottom:12px;display:flex;align-items:center;gap:8px;
+  color:var(--text-secondary);margin-bottom:12px;
 }
+.account-grid{display:flex;align-items:flex-start;gap:16px}
+.account-avatar{flex:0 0 56px}
+.account-avatar img{width:48px;height:48px;border-radius:50%;object-fit:cover;display:block}
+.account-info{flex:1;min-width:0}
+.bot-card-header{display:flex;align-items:center;justify-content:space-between}
+.bot-header-controls{display:flex;align-items:center;gap:8px}
+.budget-select{
+  padding:4px 8px;background:var(--surface-2);border:1px solid var(--border);
+  border-radius:4px;color:var(--text-primary);font-size:.7rem;font-family:var(--mono);cursor:pointer;
+}
+.budget-select:focus{outline:none;border-color:var(--accent)}
+.toggle-bot-btn{
+  padding:4px 12px;border:none;border-radius:4px;cursor:pointer;
+  font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.3px;
+  background:var(--surface-3);color:var(--text-muted);
+}
+button.toggle-bot-btn.active{background:#4CAF50!important;color:#fff!important}
+button.toggle-bot-btn.inactive{background:var(--surface-3);color:var(--text-muted)}
 .bot-level-status{font-size:.65rem;font-weight:400;text-transform:none;letter-spacing:0;display:inline-flex;align-items:center;gap:4px}
 .bot-level-status.active{color:var(--positive)}
 .bot-level-status.inactive{color:var(--text-muted)}
@@ -458,7 +486,7 @@ input,select,textarea{font-family:inherit;font-size:inherit}
 
 /* Menu Bot Image */
 #menu-bot-img{width:20px;height:20px;border-radius:50%;border:2px solid var(--accent);object-fit:cover;background:var(--surface-2);margin-left:8px}
-#menu-account-btn{display:flex;align-items:center;gap:10px}
+#menu-dashboard-btn{display:flex;align-items:center;gap:10px}
 
 /* Loading / Error */
 .account-loading,.account-error{display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 16px}

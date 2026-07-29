@@ -16,6 +16,7 @@ function evaluate(klines, currentPrice) {
   if (currentRSI > 35) return null;
 
   const sma50 = calculateSMA(closes, 50);
+  const sma20 = calculateSMA(closes, 20);
   const fib = calculateFibRetracement(high, low);
 
   const volumeSpike = klines.length >= 2 && klines[klines.length - 1].volume > klines[klines.length - 2].volume * 1.5;
@@ -40,6 +41,10 @@ function evaluate(klines, currentPrice) {
     target: fib.level382 != null ? fib.level382 : currentPrice * 1.05,
     stopLoss: low * 0.97,
     score: normalizedScore,
+    rsi: currentRSI,
+    drop_percent: dropPercent.toFixed(2),
+    sma50: sma50 ? Math.round(sma50 * 100) / 100 : null,
+    sma20: sma20 ? Math.round(sma20 * 100) / 100 : null,
     signals: { dropPercent: dropPercent.toFixed(2), rsi: currentRSI.toFixed(1), volume, fibLevel618: fib.level618.toFixed(1), fibLevel382: fib.level382?.toFixed(1) }
   };
 }

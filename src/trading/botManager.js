@@ -1,5 +1,6 @@
 const binance = require('./binanceClient');
 const store = require('./tradingStore');
+const pool = require('../engine/poolStore');
 const executor = require('./executionEngine');
 const logger = require('../logger/logger');
 
@@ -50,7 +51,7 @@ async function evaluateAndExecute(signal, context = {}) {
     let levelEnabled = true;
 
     if (context.inscriptionId) {
-      const levelConfig = store.getBotStrategyByLevel(context.inscriptionId, botType, nivel);
+      const levelConfig = pool.getBotStrategyByLevel(context.inscriptionId, botType, nivel);
       if (levelConfig) {
         levelEnabled = !!levelConfig.enabled;
         usdAmount = levelConfig.position_size_usdt;
@@ -98,7 +99,7 @@ async function evaluateAndExecute(signal, context = {}) {
     }
 
     if (context.inscriptionId) {
-      const apiKey = store.getBotApiKey(context.inscriptionId, botType);
+      const apiKey = pool.getBotApiKey(context.inscriptionId, botType);
       if (!apiKey) {
         logger.info('bot-manager', `${botType} bot for inscription ${context.inscriptionId} has no API key, skipping execution`);
         continue;
@@ -255,7 +256,7 @@ function getBotStatus(type, address = null, inscriptionId = null) {
   const stats = store.getBotStats(type);
   let hasApiKey = false;
   if (inscriptionId) {
-    const apiKey = store.getBotApiKey(inscriptionId, type);
+    const apiKey = pool.getBotApiKey(inscriptionId, type);
     hasApiKey = !!apiKey;
   }
   return {
@@ -271,10 +272,16 @@ function getBotStatus(type, address = null, inscriptionId = null) {
   };
 }
 
-async function getBotBalance(type, address = null) {
+async function getBotBalance(type, address = null, inscriptionId = null) {
   try {
-    const budgetKey = type === 'spot' ? 'BOT_SPOT_BUDGET' : 'BOT_FUTURES_BUDGET';
-    const budget = parseFloat(process.env[budgetKey] || '100');
+    let budget;
+    if (inscriptionId) {
+      const prefs = pool.getInscriptionPreferences(inscriptionId);
+      budget = type === 'spot' ? (prefs?.spot_budget || 100) : (prefs?.futures_budget || 200);
+    } else {
+      const budgetKey = type === 'spot' ? 'BOT_SPOT_BUDGET' : 'BOT_FUTURES_BUDGET';
+      budget = parseFloat(process.env[budgetKey] || (type === 'spot' ? '100' : '200'));
+    }
 
     const stats = store.getBotStats(type);
     const realizedPnl = stats.totalPnl || 0;

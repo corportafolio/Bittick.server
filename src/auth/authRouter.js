@@ -124,12 +124,13 @@ router.post('/verify-wallet', async (req, res) => {
       });
     }
     const tradingStore = require('../trading/tradingStore');
+    const poolStore = require('../engine/poolStore');
     const inscriptionsWithSelected = ownership.inscriptions.map((ins, i) => ({
       ...ins,
       selected: i === 0 ? 1 : 0
     }));
-    await tradingStore.setUserInscriptions(address, inscriptionsWithSelected);
-    await tradingStore.setVerifiedOwner(address, ownership.inscriptions[0].num, ownership.inscriptions[0].inscriptionId);
+    await poolStore.setUserInscriptions(address, inscriptionsWithSelected);
+    await poolStore.setVerifiedOwner(address, ownership.inscriptions[0].num, ownership.inscriptions[0].inscriptionId);
     const selected = ownership.inscriptions[0];
     res.json({
       exito: true,
@@ -160,8 +161,8 @@ router.post('/select-inscription', async (req, res) => {
     if (!inscriptionId) {
       return res.status(400).json({ exito: false, error: 'inscriptionId required' });
     }
-    const tradingStore = require('../trading/tradingStore');
-    const inscriptions = tradingStore.getUserInscriptions(address);
+    const poolStore = require('../engine/poolStore');
+    const inscriptions = poolStore.getUserInscriptions(address);
     if (inscriptions.length === 0) {
       return res.status(400).json({ exito: false, error: 'No inscriptions found for this address' });
     }
@@ -169,8 +170,8 @@ router.post('/select-inscription', async (req, res) => {
     if (!match) {
       return res.status(400).json({ exito: false, error: 'Inscription not found in user collection' });
     }
-    tradingStore.selectInscription(address, inscriptionId);
-    await tradingStore.setVerifiedOwner(address, match.bot_num, match.inscription_id);
+    poolStore.selectInscription(address, inscriptionId);
+    await poolStore.setVerifiedOwner(address, match.bot_num, match.inscription_id);
     res.json({
       exito: true,
       data: {
@@ -218,9 +219,9 @@ router.get('/wallet-inscriptions', async (req, res) => {
     if (!address) {
       return res.status(400).json({ exito: false, error: 'address required' });
     }
-    const tradingStore = require('../trading/tradingStore');
-    const inscriptions = tradingStore.getUserInscriptions(address);
-    const selected = tradingStore.getSelectedInscription(address);
+    const poolStore = require('../engine/poolStore');
+    const inscriptions = poolStore.getUserInscriptions(address);
+    const selected = poolStore.getSelectedInscription(address);
     res.json({
       exito: true,
       data: {
@@ -264,10 +265,10 @@ router.get('/verify-status', async (req, res) => {
   if (!address) {
     return res.status(400).json({ exito: false, error: 'address required' });
   }
-  const tradingStore = require('../trading/tradingStore');
-  const owner = tradingStore.getSelectedInscription(address);
+  const poolStore = require('../engine/poolStore');
+  const owner = poolStore.getSelectedInscription(address);
   if (!owner) {
-    const allInscriptions = tradingStore.getUserInscriptions(address);
+    const allInscriptions = poolStore.getUserInscriptions(address);
     if (allInscriptions.length > 0) {
       return res.json({
         exito: true,
@@ -290,7 +291,7 @@ router.get('/verify-status', async (req, res) => {
     }
     return res.json({ exito: true, data: { verified: false, inscriptions: [], count: 0 } });
   }
-  const allInscriptions = tradingStore.getUserInscriptions(address);
+  const allInscriptions = poolStore.getUserInscriptions(address);
   res.json({
     exito: true,
     data: {

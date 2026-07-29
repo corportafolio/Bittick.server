@@ -137,7 +137,6 @@ function cacheDom() {
     'settings-view','settings-content',
     'wallet-info','wallet-address','disconnect-btn',
     'modal-overlay','modal-content','toast-container',
-    'menu-account-btn','menu-account-text','menu-bot-img',
     'opp-toggle-btn','sidebar-backdrop',
     'indicator-menu','indicator-btn','indicator-dropdown','rsi-container',
     'ind-rsi','ind-sma','ind-ema',
@@ -899,19 +898,13 @@ function showView(view) {
 function updateMenuAuthState() {
   var auth = store.state.auth;
   var isConnected = auth.address && auth.verified;
-  var connectText = document.getElementById('menu-account-text');
-  var menuBtn = document.getElementById('menu-account-btn');
   var walletInfo = document.getElementById('wallet-info');
   var walletAddress = document.getElementById('wallet-address');
 
   if (isConnected) {
-    if (connectText) connectText.textContent = 'Cuenta Bittick';
-    if (menuBtn) menuBtn.setAttribute('data-nav', '#/account');
     if (walletInfo) walletInfo.classList.remove('hidden');
     if (walletAddress) walletAddress.textContent = truncateAddress(auth.address);
   } else {
-    if (connectText) connectText.textContent = 'Conectar Wallet';
-    if (menuBtn) menuBtn.setAttribute('data-nav', '#/account');
     if (walletInfo) walletInfo.classList.add('hidden');
   }
 }
@@ -1381,14 +1374,21 @@ function renderOpportunities() {
     var strategyType = opp.strategyType || '';
     var botType = opp.bot_type || 'futures';
     var asset = opp.asset || '';
-    var currentPrice = parseFloat(opp.currentPrice || 0);
-    var entryZone = opp.entryZone || '';
+    var currentPrice = parseFloat(opp.price || 0);
+    var entryZone = opp.entry_zone || '';
     var target = parseFloat(opp.target || 0);
     var stopLoss = parseFloat(opp.stop_loss || 0);
     var score = parseFloat(opp.score || 0);
     var confidence = parseFloat(opp.confidence || 0);
     var isUp = strategyType.indexOf('long') >= 0 || strategyType.indexOf('buy') >= 0;
     var strategyColor = isUp ? 'var(--positive)' : 'var(--negative)';
+
+    var entryPrice = 0;
+    if (entryZone) {
+      var nums = entryZone.split('-').map(function(p) { return parseFloat(p.trim()) || 0; });
+      if (nums.length === 2) entryPrice = (nums[0] + nums[1]) / 2;
+      else if (nums.length === 1) entryPrice = nums[0];
+    }
 
     var etiqueta = 'LONG';
     if (botType === 'spot') {
@@ -1399,22 +1399,76 @@ function renderOpportunities() {
 
     var nivel = Math.min(score, confidence);
     var dotColor = '#e74c3c';
+    var semaforo = 'ROJO';
     if (score >= 8 && confidence >= 8) {
       dotColor = '#2ecc71';
+      semaforo = 'VERDE';
     } else if (nivel >= 7) {
       dotColor = '#f39c12';
+      semaforo = 'AMARILLO';
     }
 
     var fechaHTML = '';
     if (opp.created_at) {
-      var oppDate = new Date(opp.created_at);
-      var now = new Date();
-      var esHoy = oppDate.toDateString() === now.toDateString();
-      var hora = oppDate.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
-      var fechaTxt = esHoy ? 'Hoy' : oppDate.toLocaleDateString('es', { day: '2-digit', month: '2-digit', year: '2-digit' });
-      fechaHTML = '<div class="opp-card-footer">' +
-        '<span class="opp-card-time">' + hora + '</span>' +
-        '<span class="opp-card-date">' + fechaTxt + '</span>' +
+      try {
+        var oppDate = new Date(opp.created_at);
+        if (!isNaN(oppDate.getTime())) {
+          var now = new Date();
+          var esHoy = oppDate.toDateString() === now.toDateString();
+          var hora = oppDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+          var fechaTxt = esHoy ? 'Hoy' : oppDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+          fechaHTML = '<div class="opp-card-footer">' +
+            '<span class="opp-card-time">' + hora + '</span>' +
+            '<span class="opp-card-date">' + fechaTxt + '</span>' +
+          '</div>';
+        }
+      } catch(e) {}
+    }
+
+    function val(v) { return (v !== undefined && v !== null && v !== 'undefined' && v !== 'null') ? v : null; }
+
+    var firstLine = [];
+    if (val(opp.sma_20)) firstLine.push('SMA20 ' + opp.sma_20);
+    if (val(opp.support_zone)) firstLine.push('Soporte ' + opp.support_zone);
+    if (val(opp.resistance_zone)) firstLine.push('Resistencia ' + opp.resistance_zone);
+    var firstLineText = firstLine.length > 0 ? firstLine.join(', ') + '.' : '';
+
+    var detailParts = [];
+    if (val(opp.rsi)) detailParts.push('RSI ' + opp.rsi);
+    if (val(opp.sma_ema)) detailParts.push(opp.sma_ema);
+    if (val(opp.atr)) detailParts.push('ATR ' + opp.atr);
+    if (val(opp.ema_50)) detailParts.push('EMA 50: ' + opp.ema_50);
+    if (val(opp.sma_50)) detailParts.push('SMA 50: ' + opp.sma_50);
+    if (val(opp.drop_pct)) detailParts.push('Caída ' + opp.drop_pct + '%');
+    if (val(opp.rise_pct)) detailParts.push('Subida ' + opp.rise_pct + '%');
+    if (val(opp.drop_percent)) detailParts.push('Caída ' + opp.drop_percent + '%');
+    if (val(opp.distance_from_sma)) detailParts.push('Distancia SMA ' + opp.distance_from_sma + '%');
+    if (val(opp.distance_pct)) detailParts.push('Distancia ' + opp.distance_pct + '%');
+    if (val(opp.fib_levels)) detailParts.push('Nivel Fib ' + opp.fib_levels);
+    if (val(opp.zone_type)) detailParts.push('Zona ' + opp.zone_type + (val(opp.zone_strength) ? ' (fuerza x' + opp.zone_strength + ')' : ''));
+    if (val(opp.zone_mid)) detailParts.push('Zona media ' + opp.zone_mid);
+    if (val(opp.through_back)) detailParts.push('Ruptura ' + (opp.through_back === 1 ? 'confirmada' : 'no confirmada'));
+    if (val(opp.volume_ratio)) detailParts.push('Volumen x' + opp.volume_ratio);
+    if (val(opp.zona_actual)) detailParts.push(opp.zona_actual);
+    if (opp.ai_explanation) detailParts.push(opp.ai_explanation);
+    try {
+      var parsedFactors = typeof opp.factors === 'string' ? JSON.parse(opp.factors) : opp.factors;
+      if (parsedFactors && parsedFactors.length) detailParts.push('Factores: ' + parsedFactors.join(', '));
+    } catch (_) {}
+    try {
+      var parsedRisks = typeof opp.risks === 'string' ? JSON.parse(opp.risks) : opp.risks;
+      if (parsedRisks && parsedRisks.length) detailParts.push('Riesgos: ' + parsedRisks.join(', '));
+    } catch (_) {}
+    detailParts.push('Semáforo: ' + semaforo + (semaforo === 'ROJO' ? ' — Precaución.' : semaforo === 'AMARILLO' ? ' — Tener precaución.' : ' — Buena oportunidad.'));
+
+    var detailText = detailParts.join(', ');
+
+    var analysisHTML = '';
+    if (firstLineText || detailText) {
+      analysisHTML = '<div class="opp-card-analysis">' +
+        '<span class="analysis-text">' + (firstLineText || detailText) + '</span>' +
+        (detailText && firstLineText ? '<span class="analysis-expand" data-opp-id="' + (opp.id || '') + '">🔍</span>' : '') +
+        (firstLineText ? '<span class="analysis-detail">' + detailText + '</span>' : '') +
       '</div>';
     }
 
@@ -1424,14 +1478,17 @@ function renderOpportunities() {
         '<span class="opp-card-symbol">' + asset + '</span>' +
         '<span class="opp-card-dot" style="background:' + dotColor + '"></span>' +
       '</div>' +
-      '<div class="opp-card-price">' + formatPrice(currentPrice) + '</div>' +
       '<div class="opp-card-changes">' +
         '<span class="opp-card-change" style="color:var(--accent)">Score: ' + score.toFixed(1) + '</span>' +
         '<span class="opp-card-change" style="color:var(--text-secondary)">Conf: ' + confidence.toFixed(0) + '</span>' +
       '</div>' +
-      (entryZone ? '<div class="opp-card-spot">Entry: ' + entryZone + '</div>' : '') +
-      (target ? '<div class="opp-card-spot">Target: ' + formatPrice(target) + '</div>' : '') +
-      (botType === 'futures' && stopLoss ? '<div class="opp-card-spot">Stop Loss: ' + formatPrice(stopLoss) + '</div>' : '') +
+      '<div class="opp-card-row">' +
+        '<span class="label">Entrada</span><span class="value">' + formatPrice(entryPrice) + '</span>' +
+        '<span class="label">Actual</span><span class="value">' + formatPrice(currentPrice) + '</span>' +
+        '<span class="label">Objetivo</span><span class="value">' + formatPrice(target) + '</span>' +
+        (botType === 'futures' && stopLoss ? '<span class="label">Stop</span><span class="value">' + formatPrice(stopLoss) + '</span>' : '') +
+      '</div>' +
+      analysisHTML +
       fechaHTML +
     '</div>';
   }).join('');
@@ -1439,9 +1496,24 @@ function renderOpportunities() {
   safeSetHTML(list, newHTML);
 
   list.querySelectorAll('.opp-card').forEach(function(card) {
-    card.addEventListener('click', function() {
+    card.addEventListener('click', function(e) {
+      if (e.target.closest('.analysis-expand')) return;
       list.querySelectorAll('.opp-card').forEach(function(c) { c.classList.remove('active'); });
       card.classList.add('active');
+    });
+  });
+
+  list.querySelectorAll('.analysis-expand').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var card = e.target.closest('.opp-card');
+      var detail = card.querySelector('.analysis-detail');
+      var analysis = card.querySelector('.opp-card-analysis');
+      if (detail) {
+        var isOpen = detail.style.display !== 'none';
+        detail.style.display = isOpen ? 'none' : 'block';
+        if (analysis) analysis.classList.toggle('expanded', !isOpen);
+      }
     });
   });
 }
@@ -1748,12 +1820,16 @@ function renderSettings() {
     '<div class="two-col-grid">' +
     '<div class="panel-card settings-card">' +
       '<h3>CUENTA BITTICK</h3>' +
-      '<div class="settings-row">' +
-        '<span class="settings-label">Bot</span>' +
-        '<span class="settings-value"><img src="' + botImage(botNum) + '" alt="Bot" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:4px" onerror="this.style.display=\'none\'">Bot #' + botNum + ' — ' + tier + '</span>' +
+      '<div class="account-grid">' +
+        '<div class="account-avatar">' +
+          '<img src="' + botImage(botNum) + '" alt="Bot" style="width:48px;height:48px;border-radius:50%;object-fit:cover" onerror="this.style.display=\'none\'">' +
+        '</div>' +
+        '<div class="account-info">' +
+          '<div class="settings-row"><span class="settings-label">Bot</span><span class="settings-value">Bot #' + botNum + ' — ' + tier + '</span></div>' +
+          '<div class="settings-row"><span class="settings-label">Wallet</span><span class="settings-value">' + truncateAddress(addr) + '</span></div>' +
+          '<div class="settings-row"><span class="settings-label">Inscripción</span><span class="settings-value">' + (inscId.length > 20 ? inscId.slice(0, 12) + '...' + inscId.slice(-8) : inscId) + '</span></div>' +
+        '</div>' +
       '</div>' +
-      '<div class="settings-row"><span class="settings-label">Wallet</span><span class="settings-value">' + truncateAddress(addr) + '</span></div>' +
-      '<div class="settings-row"><span class="settings-label">Inscripción</span><span class="settings-value">' + (inscId.length > 20 ? inscId.slice(0, 12) + '...' + inscId.slice(-8) : inscId) + '</span></div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
       '<h3>PERMISOS</h3>' +
@@ -1781,13 +1857,15 @@ function renderSettings() {
         '</div>' +
       '</div>' +
     '</div>' +
+    '<div class="two-col-grid">' +
     '<div class="panel-card settings-card">' +
-      '<h3>NIVELES SPOT <span class="bot-level-status ' + (settings.preferences.spot_enabled ? 'active' : 'inactive') + '"><span class="status-dot ' + (settings.preferences.spot_enabled ? 'green' : 'red') + '"></span>' + (settings.preferences.spot_enabled ? 'Activo' : 'Inactivo') + '</span></h3>' +
+      '<h3 class="bot-card-header"><span>NIVELES SPOT</span><span class="bot-header-controls"><select class="budget-select" data-mode="spot"><option value="100"' + ((settings.preferences.spot_budget || 100) == 100 ? ' selected' : '') + '>$100</option><option value="1000"' + ((settings.preferences.spot_budget || 100) == 1000 ? ' selected' : '') + '>$1,000</option><option value="10000"' + ((settings.preferences.spot_budget || 100) == 10000 ? ' selected' : '') + '>$10,000</option></select><button class="toggle-bot-btn ' + (settings.preferences.spot_enabled ? 'active' : 'inactive') + '" data-mode="spot">' + (settings.preferences.spot_enabled ? 'Activo' : 'Inactivo') + '</button></span></h3>' +
       '<div id="spot-levels-content">' + renderLevelsTable(settings.levels.spot || [], 'spot') + '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
-      '<h3>NIVELES FUTUROS <span class="bot-level-status ' + (settings.preferences.futures_enabled ? 'active' : 'inactive') + '"><span class="status-dot ' + (settings.preferences.futures_enabled ? 'green' : 'red') + '"></span>' + (settings.preferences.futures_enabled ? 'Activo' : 'Inactivo') + '</span></h3>' +
+      '<h3 class="bot-card-header"><span>NIVELES FUTUROS</span><span class="bot-header-controls"><select class="budget-select" data-mode="futures"><option value="200"' + ((settings.preferences.futures_budget || 200) == 200 ? ' selected' : '') + '>$200</option><option value="1000"' + ((settings.preferences.futures_budget || 200) == 1000 ? ' selected' : '') + '>$1,000</option><option value="10000"' + ((settings.preferences.futures_budget || 200) == 10000 ? ' selected' : '') + '>$10,000</option></select><button class="toggle-bot-btn ' + (settings.preferences.futures_enabled ? 'active' : 'inactive') + '" data-mode="futures">' + (settings.preferences.futures_enabled ? 'Activo' : 'Inactivo') + '</button></span></h3>' +
       '<div id="futures-levels-content">' + renderLevelsTable(settings.levels.futures || [], 'futures') + '</div>' +
+    '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
       '<h3>INFORMACIÓN</h3>' +
@@ -1970,6 +2048,45 @@ function bindSettingsEvents() {
       }
       api.post('/api/trading/strategies/levels', { inscription_id: auth.selectedInscription, mode: mode, levels: levels }, true)
         .then(function() { toast('Niveles ' + mode + ' guardados', 'success'); settings.levels[mode] = levels; })
+        .catch(function(e) { toast('Error: ' + e.message, 'error'); });
+    });
+  });
+
+  el.querySelectorAll('.budget-select').forEach(function(sel) {
+    sel.addEventListener('change', function() {
+      var mode = sel.dataset.mode;
+      var budget = parseFloat(sel.value);
+      api.post('/api/trading/budget', { inscriptionId: auth.selectedInscription, mode: mode, budget: budget }, true)
+        .then(function() {
+          settings.preferences[mode + '_budget'] = budget;
+          toast('Presupuesto ' + mode + ' actualizado a $' + budget.toLocaleString(), 'success');
+        })
+        .catch(function(e) { toast('Error: ' + e.message, 'error'); });
+    });
+  });
+
+  el.querySelectorAll('.toggle-bot-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var mode = btn.dataset.mode;
+      var field = mode + '_enabled';
+      var current = settings.preferences[field] || 0;
+      if (current) {
+        if (!confirm('¿Desactivar bot ' + mode.toUpperCase() + '?')) return;
+      }
+      var newVal = current ? 0 : 1;
+      var body = { inscriptionId: auth.selectedInscription, address: auth.address };
+      body[field] = newVal;
+      api.post('/api/trading/preferences', body, true)
+        .then(function() {
+          settings.preferences[field] = newVal;
+          btn.classList.toggle('active', !!newVal);
+          btn.classList.toggle('inactive', !newVal);
+          btn.textContent = newVal ? 'Activo' : 'Inactivo';
+          btn.style.background = newVal ? '#4CAF50' : '#333333';
+          btn.style.color = newVal ? '#fff' : '#666';
+          toast(mode + (newVal ? ' activado' : ' desactivado'), 'success');
+          loadSettingsData();
+        })
         .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
   });

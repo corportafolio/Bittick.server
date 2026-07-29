@@ -1,5 +1,6 @@
 const express = require('express');
 const store = require('./tradingStore');
+const pool = require('../engine/poolStore');
 const botManager = require('./botManager');
 const logger = require('../logger/logger');
 
@@ -7,7 +8,7 @@ const router = express.Router();
 
 function isVerified(address) {
   if (!address) return false;
-  const owner = store.getSelectedInscription(address);
+  const owner = pool.getSelectedInscription(address);
   return !!owner;
 }
 
@@ -129,8 +130,8 @@ router.get('/bot/status', async (req, res) => {
     const spotStatus = botManager.getBotStatus('spot', address, inscriptionId);
     const futuresStatus = botManager.getBotStatus('futures', address, inscriptionId);
     const [spotBalance, futuresBalance] = await Promise.all([
-      botManager.getBotBalance('spot', address),
-      botManager.getBotBalance('futures', address)
+      botManager.getBotBalance('spot', address, inscriptionId),
+      botManager.getBotBalance('futures', address, inscriptionId)
     ]);
     spotStatus.balance = spotBalance;
     futuresStatus.balance = futuresBalance;
@@ -168,7 +169,7 @@ router.post('/bot/config', (req, res) => {
 router.get('/preferences/:inscriptionId', (req, res) => {
   try {
     const { inscriptionId } = req.params;
-    let prefs = store.getInscriptionPreferences(inscriptionId);
+    let prefs = pool.getInscriptionPreferences(inscriptionId);
     if (!prefs) {
       prefs = {
         inscription_id: inscriptionId,
@@ -195,13 +196,27 @@ router.post('/preferences', (req, res) => {
     if (!inscriptionId || !address) {
       return res.status(400).json({ exito: false, error: 'inscriptionId and address are required' });
     }
-    store.upsertInscriptionPreferences(inscriptionId, address, {
+    pool.upsertInscriptionPreferences(inscriptionId, address, {
       spot_enabled, futures_enabled, spot_position_size, futures_position_size,
       spot_max_positions, futures_max_positions, spot_min_score, futures_min_score
     });
     res.json({ exito: true, message: 'Preferences saved' });
   } catch (error) {
     logger.error('trading-api', `POST preferences error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.post('/budget', (req, res) => {
+  try {
+    const { inscriptionId, mode, budget } = req.body;
+    if (!inscriptionId || !mode || budget === undefined) {
+      return res.status(400).json({ exito: false, error: 'inscriptionId, mode, and budget are required' });
+    }
+    pool.updateInscriptionBudget(inscriptionId, mode, parseFloat(budget));
+    res.json({ exito: true, message: 'Budget saved' });
+  } catch (error) {
+    logger.error('trading-api', `POST budget error: ${error.message}`);
     res.status(500).json({ exito: false, error: error.message });
   }
 });
@@ -223,7 +238,9 @@ router.get('/bot/status/:inscriptionId', async (req, res) => {
 router.get('/strategies/:inscriptionId', (req, res) => {
   try {
     const { inscriptionId } = req.params;
-    const all = store.getAllBotStrategies ? store.getAllBotStrategies(inscriptionId) : [];
+    const spotLevels = pool.getBotStrategiesByLevel(inscriptionId, 'spot');
+    const futuresLevels = pool.getBotStrategiesByLevel(inscriptionId, 'futures');
+    const all = spotLevels.concat(futuresLevels);
     res.json({ exito: true, data: all });
   } catch (error) {
     logger.error('trading-api', `GET strategies error: ${error.message}`);
@@ -234,7 +251,7 @@ router.get('/strategies/:inscriptionId', (req, res) => {
 router.get('/strategies/levels/:inscriptionId/:mode', (req, res) => {
   try {
     const { inscriptionId, mode } = req.params;
-    let levels = store.getBotStrategiesByLevel(inscriptionId, mode);
+    let levels = pool.getBotStrategiesByLevel(inscriptionId, mode);
     if (!levels || levels.length === 0) {
       const isSpot = mode === 'spot';
       levels = [
@@ -260,8 +277,8 @@ router.get('/strategies/levels/:inscriptionId/:mode', (req, res) => {
 router.get('/strategies/levels/:inscriptionId', (req, res) => {
   try {
     const { inscriptionId } = req.params;
-    const spotLevels = store.getBotStrategiesByLevel(inscriptionId, 'spot');
-    const futuresLevels = store.getBotStrategiesByLevel(inscriptionId, 'futures');
+    const spotLevels = pool.getBotStrategiesByLevel(inscriptionId, 'spot');
+    const futuresLevels = pool.getBotStrategiesByLevel(inscriptionId, 'futures');
     
     const spotDefaults = [
       { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 10 },
@@ -305,8 +322,8 @@ router.post('/strategies/levels', (req, res) => {
     if (!inscription_id || !mode || !levels || !Array.isArray(levels)) {
       return res.status(400).json({ exito: false, error: 'inscription_id, mode, and levels array are required' });
     }
-    store.saveBotStrategiesByLevel(inscription_id, mode, levels);
-    const saved = store.getBotStrategiesByLevel(inscription_id, mode);
+    pool.saveBotStrategiesByLevel(inscription_id, mode, levels);
+    const saved = pool.getBotStrategiesByLevel(inscription_id, mode);
     res.json({ exito: true, data: saved });
   } catch (error) {
     logger.error('trading-api', `POST strategies/levels error: ${error.message}`);
@@ -317,7 +334,7 @@ router.post('/strategies/levels', (req, res) => {
 router.delete('/strategies/levels/:inscriptionId/:mode', (req, res) => {
   try {
     const { inscriptionId, mode } = req.params;
-    store.deleteBotStrategiesByLevel(inscriptionId, mode);
+    pool.deleteBotStrategiesByLevel(inscriptionId, mode);
     res.json({ exito: true, message: `Strategies ${mode} levels deleted for ${inscriptionId}` });
   } catch (error) {
     logger.error('trading-api', `DELETE strategies/levels error: ${error.message}`);
@@ -329,8 +346,8 @@ router.delete('/strategies/levels/:inscriptionId/:mode', (req, res) => {
 router.get('/bot-apikey/:inscriptionId/status', (req, res) => {
   try {
     const { inscriptionId } = req.params;
-    const spot = store.getBotApiKey(inscriptionId, 'spot');
-    const futures = store.getBotApiKey(inscriptionId, 'futures');
+    const spot = pool.getBotApiKey(inscriptionId, 'spot');
+    const futures = pool.getBotApiKey(inscriptionId, 'futures');
     res.json({
       exito: true,
       data: {
@@ -349,7 +366,7 @@ router.get('/bot-apikey/:inscriptionId/status', (req, res) => {
 router.get('/bot-apikey/:inscriptionId/:mode', (req, res) => {
   try {
     const { inscriptionId, mode } = req.params;
-    const key = store.getBotApiKey(inscriptionId, mode);
+    const key = pool.getBotApiKey(inscriptionId, mode);
     if (!key) {
       return res.json({ exito: true, data: null });
     }
@@ -371,7 +388,7 @@ router.get('/bot-apikey/:inscriptionId/:mode/raw', (req, res) => {
       return res.status(403).json({ exito: false, error: 'Unauthorized' });
     }
     const { inscriptionId, mode } = req.params;
-    const key = store.getBotApiKey(inscriptionId, mode);
+    const key = pool.getBotApiKey(inscriptionId, mode);
     if (!key) {
       return res.json({ exito: true, data: null });
     }
@@ -393,10 +410,10 @@ router.post('/bot-apikey/all', (req, res) => {
       return res.status(400).json({ exito: false, error: 'inscription_id is required' });
     }
     if (spot_key && spot_secret) {
-      store.saveBotApiKey(inscription_id, 'spot', address, spot_key, spot_secret);
+      pool.saveBotApiKey(inscription_id, 'spot', address, spot_key, spot_secret);
     }
     if (futures_key && futures_secret) {
-      store.saveBotApiKey(inscription_id, 'futures', address, futures_key, futures_secret);
+      pool.saveBotApiKey(inscription_id, 'futures', address, futures_key, futures_secret);
     }
     res.json({ exito: true, message: 'API keys saved' });
   } catch (error) {
@@ -415,7 +432,7 @@ router.post('/bot-apikey', (req, res) => {
     if (!inscription_id || !mode || !api_key || !api_secret) {
       return res.status(400).json({ exito: false, error: 'inscription_id, mode, api_key, and api_secret are required' });
     }
-    store.saveBotApiKey(inscription_id, mode, address, api_key, api_secret);
+    pool.saveBotApiKey(inscription_id, mode, address, api_key, api_secret);
     res.json({ exito: true, message: 'API key saved' });
   } catch (error) {
     logger.error('trading-api', `POST bot-apikey error: ${error.message}`);
@@ -430,7 +447,7 @@ router.delete('/bot-apikey/:inscriptionId/:mode', (req, res) => {
       return res.status(403).json({ exito: false, error: 'Unauthorized' });
     }
     const { inscriptionId, mode } = req.params;
-    store.deleteBotApiKey(inscriptionId, mode);
+    pool.deleteBotApiKey(inscriptionId, mode);
     res.json({ exito: true, message: 'API key deleted' });
   } catch (error) {
     logger.error('trading-api', `DELETE bot-apikey error: ${error.message}`);

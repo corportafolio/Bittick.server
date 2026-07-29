@@ -37,7 +37,7 @@ class AIConnector {
       body: JSON.stringify({
         model: this.model,
         messages,
-        max_tokens: 2048
+        max_tokens: 500
       })
     });
 

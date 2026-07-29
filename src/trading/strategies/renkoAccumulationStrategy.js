@@ -231,6 +231,24 @@ function evaluate(klines, currentPrice) {
     ? Math.round((currentZone.startPrice - atr * 1.5) * 100) / 100
     : Math.round((currentZone.endPrice + atr * 1.5) * 100) / 100;
 
+  // Calculate EMA50 for the indicator data
+  const closes = klines.map(k => k.close);
+  const ema50 = calculateEMA(closes, 50);
+  
+  // Determine zone type for the signal
+  const zoneType = currentZone.type;
+  const zoneMid = currentZone.midPrice;
+  const zoneStrength = currentZone.strength;
+  
+  // Support/Resistance zones based on zone type
+  let supportZone = null;
+  let resistanceZone = null;
+  if (zoneType === 'soporte') {
+    supportZone = `${currentZone.startPrice.toFixed(1)} - ${currentZone.endPrice.toFixed(1)}`;
+  } else if (zoneType === 'resistencia') {
+    resistanceZone = `${currentZone.startPrice.toFixed(1)} - ${currentZone.endPrice.toFixed(1)}`;
+  }
+
   return {
     strategyType,
     asset: 'BTCUSDT',
@@ -239,6 +257,15 @@ function evaluate(klines, currentPrice) {
     target,
     stopLoss: sl,
     score: normalizedScore,
+    // Indicator fields for professional analysis
+    atr: Math.round(atr * 100) / 100,
+    ema50: ema50 ? Math.round(ema50 * 100) / 100 : null,
+    support_zone: supportZone,
+    resistance_zone: resistanceZone,
+    zone_type: zoneType,
+    zone_mid: Math.round(zoneMid * 100) / 100,
+    zone_strength: zoneStrength,
+    // Signal data for frontend
     signals: {
       strategy: 'avizor_renko_accumulation',
       obstacleZone_start: Math.round(currentZone.startPrice * 100) / 100,
@@ -254,7 +281,8 @@ function evaluate(klines, currentPrice) {
       distanceToMagnet: distToMagnet !== null ? Math.round(distToMagnet * 100) / 100 : null,
       fastMove,
       volumeSurge,
-      atr: Math.round(atr * 100) / 100
+      atr: Math.round(atr * 100) / 100,
+      ema50: ema50 ? Math.round(ema50 * 100) / 100 : null
     }
   };
 }

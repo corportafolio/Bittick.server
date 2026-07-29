@@ -16,6 +16,7 @@ function evaluate(klines, currentPrice) {
   if (currentRSI < 65) return null;
 
   const sma20 = calculateSMA(closes, 20);
+  const sma50 = calculateSMA(closes, 50);
   const fib = calculateFibRetracement(high, low);
 
   let distanceFromSma = 0;
@@ -32,19 +33,24 @@ function evaluate(klines, currentPrice) {
   if (volumeHigh) score += 1;
   const normalizedScore = Math.min(10, Math.round((score / 7) * 10));
 
-    const entryLow = fib.level236 * 0.99;
-    const fibTarget = fib.level500 != null ? fib.level500 : currentPrice * 0.95;
-    const shortTarget = Math.min(fibTarget, entryLow * 0.98);
-    return {
-      strategyType: 'short',
-      asset: 'BTCUSDT',
-      currentPrice,
-      entryZone: `${entryLow.toFixed(1)} - ${(fib.level236 * 1.01).toFixed(1)}`,
-      target: shortTarget,
-      stopLoss: high * 1.03,
-      score: normalizedScore,
-      signals: { risePercent: risePercent.toFixed(2), rsi: currentRSI.toFixed(1), distanceFromSma: distanceFromSma.toFixed(2), fibLevel236: fib.level236.toFixed(1), fibLevel500: fib.level500?.toFixed(1) }
-    };
+  const entryLow = fib.level236 * 0.99;
+  const fibTarget = fib.level500 != null ? fib.level500 : currentPrice * 0.95;
+  const shortTarget = Math.min(fibTarget, entryLow * 0.98);
+
+  return {
+    strategyType: 'short',
+    asset: 'BTCUSDT',
+    currentPrice,
+    entryZone: `${entryLow.toFixed(1)} - ${(fib.level236 * 1.01).toFixed(1)}`,
+    target: shortTarget,
+    stopLoss: high * 1.03,
+    score: normalizedScore,
+    rsi: currentRSI,
+    rise_percent: risePercent.toFixed(2),
+    sma20: sma20 ? Math.round(sma20 * 100) / 100 : null,
+    sma50: sma50 ? Math.round(sma50 * 100) / 100 : null,
+    signals: { risePercent: risePercent.toFixed(2), rsi: currentRSI.toFixed(1), distanceFromSma: distanceFromSma.toFixed(2), fibLevel236: fib.level236.toFixed(1), fibLevel500: fib.level500?.toFixed(1) }
+  };
 }
 
 module.exports = { evaluate };

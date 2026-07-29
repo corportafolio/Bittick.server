@@ -30,7 +30,20 @@ function evaluate(klines, currentPrice) {
       target: resistance,
       stopLoss: support * 0.97,
       score,
-      signals: { type: 'range_long', support: support.toFixed(1), resistance: resistance.toFixed(1), distanceToSupport: distanceToSupport.toFixed(2), rangePercent: rangePercent.toFixed(2) }
+      // Professional indicators that triggered this signal
+      sma_ema: `SMA20 ${sma20.toFixed(1)}`,
+      support_zone: support.toFixed(1),
+      resistance_zone: resistance.toFixed(1),
+      distance_pct: distanceToSupport.toFixed(2),
+      fib_levels: `Rango ${rangePercent.toFixed(1)}%`,
+      signals: { 
+        type: 'range_long', 
+        support: support.toFixed(1), 
+        resistance: resistance.toFixed(1), 
+        distanceToSupport: distanceToSupport.toFixed(2), 
+        rangePercent: rangePercent.toFixed(2),
+        trigger: 'Precio a ' + distanceToSupport.toFixed(2) + '% del soporte con SMA20 por encima'
+      }
     };
   }
 
@@ -47,7 +60,20 @@ function evaluate(klines, currentPrice) {
       target: shortTarget,
       stopLoss: resistance * 1.03,
       score,
-      signals: { type: 'range_short', support: support.toFixed(1), resistance: resistance.toFixed(1), distanceToResistance: distanceToResistance.toFixed(2), rangePercent: rangePercent.toFixed(2) }
+      // Professional indicators that triggered this signal
+      sma_ema: `SMA20 ${sma20.toFixed(1)}`,
+      support_zone: support.toFixed(1),
+      resistance_zone: resistance.toFixed(1),
+      distance_pct: distanceToResistance.toFixed(2),
+      fib_levels: `Rango ${rangePercent.toFixed(1)}%`,
+      signals: { 
+        type: 'range_short', 
+        support: support.toFixed(1), 
+        resistance: resistance.toFixed(1), 
+        distanceToResistance: distanceToResistance.toFixed(2), 
+        rangePercent: rangePercent.toFixed(2),
+        trigger: 'Precio a ' + distanceToResistance.toFixed(2) + '% de la resistencia con SMA20 por debajo'
+      }
     };
   }
 

@@ -2,6 +2,7 @@ const initSqlJs = require('sql.js');
 const path = require('path');
 const fs = require('fs');
 const logger = require('../logger/logger');
+const poolStore = require('../engine/poolStore');
 
 const DB_PATH = path.join(__dirname, '../../data/trading.db');
 let db = null;
@@ -40,6 +41,29 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
 
   try { db.run("ALTER TABLE opportunities ADD COLUMN horizonte TEXT DEFAULT 'horas'"); } catch (e) {}
   try { db.run("ALTER TABLE opportunities ADD COLUMN bot_type TEXT NOT NULL DEFAULT 'futures'"); } catch (e) {}
+
+  // New indicator columns for professional analysis
+  try { db.run("ALTER TABLE opportunities ADD COLUMN support_zone TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN resistance_zone TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN atr REAL"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN volume_ratio REAL"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN fib_levels TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN rsi REAL"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN sma_ema TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN volume_spike INTEGER"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN distance_pct REAL"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN zone_type TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN zone_strength INTEGER"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN magnet_zone_mid REAL"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN magnet_zone_strength INTEGER"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN back_price REAL"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN through_back INTEGER"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN fast_move INTEGER"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN drop_pct REAL"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN rise_pct REAL"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN distance_from_sma REAL"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN volume_high INTEGER"); } catch (e) {}
+  try { db.run("ALTER TABLE opportunities ADD COLUMN volume_surge INTEGER"); } catch (e) {}
 
   db.run(`CREATE TABLE IF NOT EXISTS strategy_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -99,17 +123,7 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
     closed_at TEXT NOT NULL
   )`);
 
-  // Bot API keys table - per-bot per-mode Binance API credentials
-  db.run(`CREATE TABLE IF NOT EXISTS bot_api_keys (
-    inscription_id TEXT NOT NULL,
-    mode TEXT NOT NULL,
-    address TEXT NOT NULL,
-    api_key TEXT NOT NULL,
-    api_secret TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    PRIMARY KEY (inscription_id, mode)
-  )`);
+  // Bot API keys table - REMOVED: now in modules.binary (poolStore.js)
 
   db.run(`CREATE TABLE IF NOT EXISTS bot_config (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,49 +134,11 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
     min_confidence REAL NOT NULL DEFAULT 5
   )`);
 
-  // User inscriptions table - stores verified wallet inscriptions
-  db.run(`CREATE TABLE IF NOT EXISTS user_inscriptions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    address TEXT NOT NULL,
-    bot_num INTEGER NOT NULL,
-    inscription_id TEXT NOT NULL,
-    tier TEXT NOT NULL,
-    bot_image_url TEXT,
-    selected INTEGER NOT NULL DEFAULT 0,
-    verified_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(address, inscription_id)
-  )`);
+  // User inscriptions table - REMOVED: now in modules.binary (poolStore.js)
 
-  // Inscription preferences table - bot preferences per inscription
-  db.run(`CREATE TABLE IF NOT EXISTS inscription_preferences (
-    inscription_id TEXT PRIMARY KEY,
-    address TEXT NOT NULL,
-    spot_enabled INTEGER NOT NULL DEFAULT 1,
-    futures_enabled INTEGER NOT NULL DEFAULT 1,
-    spot_position_size REAL NOT NULL DEFAULT 10.0,
-    futures_position_size REAL NOT NULL DEFAULT 10.0,
-    spot_max_positions INTEGER NOT NULL DEFAULT 5,
-    futures_max_positions INTEGER NOT NULL DEFAULT 5,
-    spot_min_score INTEGER NOT NULL DEFAULT 6,
-    futures_min_score INTEGER NOT NULL DEFAULT 7,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-  )`);
+  // Inscription preferences table - REMOVED: now in modules.binary (poolStore.js)
 
-  // Bot strategies table - per-bot per-mode strategy configuration
-  db.run(`CREATE TABLE IF NOT EXISTS bot_strategies (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    inscription_id TEXT NOT NULL,
-    mode TEXT NOT NULL,
-    level INTEGER NOT NULL,
-    strategy_name TEXT NOT NULL DEFAULT '',
-    enabled INTEGER NOT NULL DEFAULT 1,
-    position_size_usdt REAL NOT NULL DEFAULT 10.0,
-    min_score INTEGER NOT NULL DEFAULT 6,
-    min_confidence INTEGER NOT NULL DEFAULT 6,
-    leverage INTEGER DEFAULT 1,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(inscription_id, mode, level)
-  )`);
+  // Bot strategies table - REMOVED: now in modules.binary (poolStore.js)
 
   // Trading zones table - catalogo de zonas Trading Avizor
   db.run(`CREATE TABLE IF NOT EXISTS trading_zones (
@@ -175,16 +151,24 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
-  // Migration: add min_score column if missing
-  try {
-    const cols = db.exec("PRAGMA table_info(bot_strategies)");
-    const hasMinScore = cols[0]?.values?.some(r => r[1] === 'min_score');
-    if (!hasMinScore) {
-      db.run("ALTER TABLE bot_strategies ADD COLUMN min_score INTEGER NOT NULL DEFAULT 6");
-      db.run("UPDATE bot_strategies SET min_score = level WHERE min_score = 6");
-      save();
-    }
-  } catch (_) {}
+  // Migration: add technical indicator columns to opportunities if missing
+  const oppMigrations = [
+    ['open_interest', 'REAL'], ['ema_50', 'REAL'], ['sma_20', 'REAL'],
+    ['zone_type', 'TEXT'], ['zone_mid', 'REAL'], ['zone_strength', 'REAL'],
+    ['zone_start', 'REAL'], ['zone_end', 'REAL'], ['rise_percent', 'REAL'],
+    ['sma_50', 'REAL'], ['volume_surge', 'INTEGER'], ['volume_spike', 'INTEGER'],
+    ['volume_high', 'INTEGER'], ['drop_percent', 'REAL'], ['rsi', 'REAL'],
+    ['support_zone', 'TEXT'], ['resistance_zone', 'TEXT'], ['atr', 'REAL'],
+    ['volume_ratio', 'REAL'], ['magnet_zone_mid', 'REAL'], ['magnet_zone_strength', 'INTEGER'],
+    ['back_price', 'REAL'], ['through_back', 'INTEGER'], ['fast_move', 'INTEGER'],
+    ['drop_pct', 'REAL'], ['rise_pct', 'REAL'], ['distance_pct', 'REAL'],
+    ['distance_from_sma', 'REAL'], ['fib_levels', 'TEXT'], ['sma_ema', 'TEXT'],
+    ['zona_actual', 'TEXT']
+  ];
+  for (const [col, sql] of oppMigrations) {
+    try { db.run(`ALTER TABLE opportunities ADD COLUMN ${col} ${sql}`); } catch (_) {}
+  }
+  save();
 
   save();
 
@@ -229,6 +213,10 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
   save();
 
   logger.info('trading-store', `Trading DB initialized at ${DB_PATH}`);
+
+  // Initialize poolStore (modules.binary) and migrate sensitive data if needed
+  await poolStore.init();
+  poolStore.migrateFromTradingDb(db);
 }
 
 function save() {
@@ -240,18 +228,44 @@ function save() {
 
 function insertOpportunity(op) {
   const stmt = db.prepare(`INSERT INTO opportunities
-    (asset, strategy_type, bot_type, price, entry_zone, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`);
-  stmt.run([op.asset, op.strategyType, op.botType || 'futures', op.currentPrice, op.entryZone,
+    (asset, strategy_type, price, entry_zone, target, stop_loss, score, confidence,
+     ai_explanation, factors, risks, signals, horizonte, status, created_at, bot_type,
+     rsi, open_interest, ema_50, sma_20, support_zone, resistance_zone, atr, volume_ratio,
+     zone_type, zone_mid, zone_strength, zone_start, zone_end, rise_percent, sma_50,
+     sma_ema, drop_pct, rise_pct, distance_pct, volume_spike, fib_levels, distance_from_sma,
+     magnet_zone_mid, magnet_zone_strength, back_price, through_back, fast_move,
+     volume_high, volume_surge, drop_percent, zona_actual)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+     ?, ?, ?, ?, ?, ?, datetime('now'), ?,
+     ?, ?, ?, ?, ?, ?, ?, ?,
+     ?, ?, ?, ?, ?, ?, ?,
+     ?, ?, ?, ?, ?, ?, ?,
+     ?, ?, ?, ?, ?,
+     ?, ?, ?,
+     ?)`);
+  stmt.run([
+    op.asset, op.strategyType, op.currentPrice, op.entryZone,
     op.target, op.stopLoss, op.score, op.confidence || 0,
     op.explanation || '', JSON.stringify(op.factors || []),
-    JSON.stringify(op.risks || []), JSON.stringify(op.signals || {}), op.horizonte || 'horas']);
+    JSON.stringify(op.risks || []), JSON.stringify(op.signals || {}), op.horizonte || 'horas', 'pending', op.botType || 'futures',
+    op.rsi || null, op.open_interest || null, op.ema_50 || null, op.sma_20 || null,
+    op.support_zone || null, op.resistance_zone || null, op.atr || null, op.volume_ratio || null,
+    op.zone_type || null, op.zone_mid || null, op.zone_strength || null, op.zone_start || null, op.zone_end || null,
+    op.rise_percent || null, op.sma_50 || null,
+    op.sma_ema || null, op.drop_pct || null, op.rise_pct || null, op.distance_pct || null,
+    op.volume_spike || null, op.fib_levels || null, op.distance_from_sma || null,
+    op.magnet_zone_mid || null, op.magnet_zone_strength || null, op.back_price || null, op.through_back || null, op.fast_move || null,
+    op.volume_high || null, op.volume_surge || null, op.drop_percent || null,
+    op.zona_actual || null
+  ]);
   stmt.free();
   save();
 }
 
+const OPP_COLS = 'id, asset, strategy_type, price, entry_zone, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, status, created_at, bot_type, rsi, open_interest, ema_50, sma_20, support_zone, resistance_zone, atr, volume_ratio, zone_type, zone_mid, zone_strength, zone_start, zone_end, rise_percent, sma_50, sma_ema, drop_pct, rise_pct, distance_pct, volume_spike, fib_levels, distance_from_sma, magnet_zone_mid, magnet_zone_strength, back_price, through_back, fast_move, volume_high, volume_surge, drop_percent, zona_actual';
+
 function getOpportunities(limit = 50, offset = 0, since = null, botType = null) {
-  let sql = "SELECT * FROM opportunities WHERE score >= 5 AND confidence >= 5";
+  let sql = "SELECT " + OPP_COLS + " FROM opportunities WHERE score >= 5 AND confidence >= 5";
   const conditions = [];
   const params = [];
   if (since) {
@@ -268,48 +282,44 @@ function getOpportunities(limit = 50, offset = 0, since = null, botType = null) 
   }
   sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
   params.push(limit, offset);
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const rows = [];
-  while (stmt.step()) {
-    const row = stmt.getAsObject();
-    if (row.created_at) {
-      row.created_at = row.created_at.replace(' ', 'T') + 'Z';
-    }
-    if (row.score !== undefined) row.score = Math.round(Math.min(10, Math.max(0, row.score)));
-    if (row.confidence !== undefined) row.confidence = Math.round(Math.min(10, Math.max(0, row.confidence)));
-    rows.push(row);
-  }
-  stmt.free();
-  return rows;
+  const results = db.exec(sql, params);
+  if (!results.length || !results[0].values.length) return [];
+  const cols = results[0].columns;
+  return results[0].values.map(function(row) {
+    const obj = {};
+    cols.forEach(function(c, i) { obj[c] = row[i]; });
+    if (obj.created_at) obj.created_at = obj.created_at.replace(' ', 'T') + 'Z';
+    if (obj.score !== undefined) obj.score = Math.round(Math.min(10, Math.max(0, obj.score)));
+    if (obj.confidence !== undefined) obj.confidence = Math.round(Math.min(10, Math.max(0, obj.confidence)));
+    return obj;
+  });
 }
 
 function getOpportunitiesFreeTier(limit = 50, offset = 0) {
   const sinceDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').replace('Z', '');
-  let sql = "SELECT * FROM opportunities WHERE created_at > ? AND score >= 5 AND score <= 6 AND confidence >= 5 AND confidence <= 6";
-  sql += " ORDER BY created_at DESC LIMIT ? OFFSET ?";
-  const stmt = db.prepare(sql);
-  stmt.bind([sinceDate, limit, offset]);
-  const rows = [];
-  while (stmt.step()) {
-    const row = stmt.getAsObject();
-    if (row.created_at) {
-      row.created_at = row.created_at.replace(' ', 'T') + 'Z';
-    }
-    if (row.score !== undefined) row.score = Math.round(Math.min(10, Math.max(0, row.score)));
-    if (row.confidence !== undefined) row.confidence = Math.round(Math.min(10, Math.max(0, row.confidence)));
-    rows.push(row);
-  }
-  stmt.free();
-  return rows;
+  const sql = "SELECT " + OPP_COLS + " FROM opportunities WHERE created_at > ? AND score >= 5 AND score <= 6 AND confidence >= 5 AND confidence <= 6 ORDER BY created_at DESC LIMIT ? OFFSET ?";
+  const results = db.exec(sql, [sinceDate, limit, offset]);
+  if (!results.length || !results[0].values.length) return [];
+  const cols = results[0].columns;
+  return results[0].values.map(function(row) {
+    const obj = {};
+    cols.forEach(function(c, i) { obj[c] = row[i]; });
+    if (obj.created_at) obj.created_at = obj.created_at.replace(' ', 'T') + 'Z';
+    if (obj.score !== undefined) obj.score = Math.round(Math.min(10, Math.max(0, obj.score)));
+    if (obj.confidence !== undefined) obj.confidence = Math.round(Math.min(10, Math.max(0, obj.confidence)));
+    return obj;
+  });
 }
 
 function getOpportunityById(id) {
-  const stmt = db.prepare("SELECT * FROM opportunities WHERE id = ?");
-  stmt.bind([id]);
-  if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r; }
-  stmt.free();
-  return null;
+  const results = db.exec("SELECT " + OPP_COLS + " FROM opportunities WHERE id = ?", [id]);
+  if (!results.length || !results[0].values.length) return null;
+  const cols = results[0].columns;
+  const row = results[0].values[0];
+  const obj = {};
+  cols.forEach(function(c, i) { obj[c] = row[i]; });
+  if (obj.created_at) obj.created_at = obj.created_at.replace(' ', 'T') + 'Z';
+  return obj;
 }
 
 function getStrategyConfigs() {
@@ -515,134 +525,8 @@ function getBotStats(type) {
   return { type, openPositions: openPositions.length, totalPnl };
 }
 
-// User inscriptions functions
-function insertUserInscription(address, botNum, inscriptionId, tier, botImageUrl) {
-  const stmt = db.prepare(`INSERT OR REPLACE INTO user_inscriptions
-    (address, bot_num, inscription_id, tier, bot_image_url, verified_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'))`);
-  stmt.run([address.toLowerCase(), botNum, inscriptionId, tier, botImageUrl || '']);
-  stmt.free();
-  save();
-}
-
-function getUserInscriptions(address) {
-  const stmt = db.prepare("SELECT bot_num, inscription_id, tier, bot_image_url, selected FROM user_inscriptions WHERE address = ? ORDER BY bot_num");
-  stmt.bind([address.toLowerCase()]);
-  const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
-  stmt.free();
-  return rows;
-}
-
-function setSelectedInscription(address, inscriptionId) {
-  db.run("UPDATE user_inscriptions SET selected = 0 WHERE address = ?", [address.toLowerCase()]);
-  db.run("UPDATE user_inscriptions SET selected = 1 WHERE address = ? AND inscription_id = ?", [address.toLowerCase(), inscriptionId]);
-  save();
-}
-
-function getSelectedInscription(address) {
-  const stmt = db.prepare("SELECT inscription_id, bot_num, tier, bot_image_url FROM user_inscriptions WHERE address = ? AND selected = 1");
-  stmt.bind([address.toLowerCase()]);
-  if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r; }
-  stmt.free();
-  return null;
-}
-
-function deleteUserInscriptions(address) {
-  db.run("DELETE FROM user_inscriptions WHERE address = ?", [address.toLowerCase()]);
-  save();
-}
-
-// Inscription preferences functions
-function getInscriptionPreferences(inscriptionId) {
-  const stmt = db.prepare("SELECT * FROM inscription_preferences WHERE inscription_id = ?");
-  stmt.bind([inscriptionId]);
-  if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r; }
-  stmt.free();
-  return null;
-}
-
-function upsertInscriptionPreferences(inscriptionId, address, prefs) {
-  const stmt = db.prepare(`INSERT OR REPLACE INTO inscription_preferences
-    (inscription_id, address, spot_enabled, futures_enabled, spot_position_size, futures_position_size,
-     spot_max_positions, futures_max_positions, spot_min_score, futures_min_score, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
-  stmt.run([
-    inscriptionId, address.toLowerCase(),
-    prefs.spot_enabled ?? 1, prefs.futures_enabled ?? 1,
-    prefs.spot_position_size ?? 10.0, prefs.futures_position_size ?? 10.0,
-    prefs.spot_max_positions ?? 5, prefs.futures_max_positions ?? 5,
-    prefs.spot_min_score ?? 6, prefs.futures_min_score ?? 7
-  ]);
-  stmt.free();
-  save();
-}
-
-function deleteInscriptionPreferences(inscriptionId) {
-  db.run("DELETE FROM inscription_preferences WHERE inscription_id = ?", [inscriptionId]);
-  save();
-}
-
-// Bot strategies CRUD (per-level)
-function getBotStrategiesByLevel(inscriptionId, mode) {
-  const stmt = db.prepare("SELECT * FROM bot_strategies WHERE inscription_id = ? AND mode = ? ORDER BY level DESC");
-  stmt.bind([inscriptionId, mode]);
-  const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
-  stmt.free();
-  return rows;
-}
-
-function getBotStrategyByLevel(inscriptionId, mode, level) {
-  const stmt = db.prepare("SELECT * FROM bot_strategies WHERE inscription_id = ? AND mode = ? AND level = ?");
-  stmt.bind([inscriptionId, mode, level]);
-  const row = stmt.step() ? stmt.getAsObject() : null;
-  stmt.free();
-  return row;
-}
-
-function saveBotStrategyByLevel(strategy) {
-  const stmt = db.prepare(`INSERT OR REPLACE INTO bot_strategies
-    (inscription_id, mode, level, strategy_name, enabled, position_size_usdt, min_score, min_confidence, leverage, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
-  stmt.run([
-    strategy.inscription_id, strategy.mode, strategy.level,
-    strategy.strategy_name || '', strategy.enabled ?? 1,
-    strategy.position_size_usdt ?? 10, strategy.min_score ?? 6,
-    strategy.min_confidence ?? 6, strategy.leverage ?? 1
-  ]);
-  stmt.free();
-}
-
-function saveBotStrategiesByLevel(inscriptionId, mode, levels) {
-  for (const lvl of levels) {
-    saveBotStrategyByLevel({
-      inscription_id: inscriptionId,
-      mode: mode,
-      level: lvl.level,
-      strategy_name: `level_${lvl.level}`,
-      enabled: lvl.enabled ?? 1,
-      position_size_usdt: lvl.amount ?? lvl.position_size_usdt ?? 10,
-      min_score: lvl.min_score ?? lvl.level ?? 6,
-      min_confidence: lvl.min_confidence ?? lvl.level ?? 6,
-      leverage: lvl.leverage ?? 1
-    });
-  }
-  save();
-}
-
-function deleteBotStrategiesByLevel(inscriptionId, mode) {
-  db.run("DELETE FROM bot_strategies WHERE inscription_id = ? AND mode = ?", [inscriptionId, mode]);
-  save();
-}
-
-function getActiveInscriptions() {
-  const stmt = db.prepare("SELECT inscription_id, bot_num, address FROM user_inscriptions WHERE selected = 1");
-  const rows = [];
-  while (stmt.step()) rows.push(stmt.getAsObject());
-  stmt.free();
-  return rows;
-}
+// === Functions moved to poolStore: user inscriptions, preferences, strategies, API keys ===
+// Use poolStore.getBotApiKey, poolStore.getUserInscriptions, etc.
 
 // Bot status/positions by inscription
 function getPositionsByInscription(inscriptionId, status = 'open') {
@@ -655,53 +539,6 @@ function getPositionsByInscription(inscriptionId, status = 'open') {
   while (stmt.step()) rows.push(normalizePositionTimestamps(stmt.getAsObject()));
   stmt.free();
   return rows;
-}
-
-// Batch set user inscriptions (called by authRouter after verify)
-function setUserInscriptions(address, inscriptions) {
-  deleteUserInscriptions(address);
-  for (const ins of inscriptions) {
-    insertUserInscription(address, ins.num, ins.inscriptionId, ins.tier, ins.botImageUrl || '');
-  }
-}
-
-// Alias for setSelectedInscription
-function selectInscription(address, inscriptionId) {
-  setSelectedInscription(address, inscriptionId);
-}
-
-// Track verified owner
-function setVerifiedOwner(address, botNum, inscriptionId) {
-  db.run(`INSERT OR REPLACE INTO user_inscriptions
-    (address, bot_num, inscription_id, tier, bot_image_url, selected, verified_at)
-    SELECT ?, ?, ?, tier, bot_image_url, 1, datetime('now')
-    FROM user_inscriptions WHERE inscription_id = ? AND address = ?`, [
-    address.toLowerCase(), botNum, inscriptionId, inscriptionId, address.toLowerCase()
-  ]);
-  save();
-}
-
-// Bot API Keys CRUD
-function getBotApiKey(inscriptionId, mode) {
-  const stmt = db.prepare("SELECT api_key, api_secret FROM bot_api_keys WHERE inscription_id = ? AND mode = ?");
-  stmt.bind([inscriptionId, mode]);
-  if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r; }
-  stmt.free();
-  return null;
-}
-
-function saveBotApiKey(inscriptionId, mode, address, apiKey, apiSecret) {
-  const stmt = db.prepare(`INSERT OR REPLACE INTO bot_api_keys
-    (inscription_id, mode, address, api_key, api_secret, updated_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'))`);
-  stmt.run([inscriptionId, mode, address.toLowerCase(), apiKey, apiSecret]);
-  stmt.free();
-  save();
-}
-
-function deleteBotApiKey(inscriptionId, mode) {
-  db.run("DELETE FROM bot_api_keys WHERE inscription_id = ? AND mode = ?", [inscriptionId, mode]);
-  save();
 }
 
 function getTradingZones(limit = 100) {
@@ -762,12 +599,7 @@ module.exports = {
   getStrategyConfigs, deleteOldOpportunities, deleteOpportunity, cleanupOldPositions,
   insertPosition, getPositions, getPositionById, updatePositionPrice, closePosition, cancelPosition,
   getBotConfigs, getBotConfig, updateBotConfig, getBotStats, close,
-  insertUserInscription, getUserInscriptions, setSelectedInscription, getSelectedInscription,
-  deleteUserInscriptions, setUserInscriptions, selectInscription, setVerifiedOwner,
-  getInscriptionPreferences, upsertInscriptionPreferences, deleteInscriptionPreferences,
   getPositionsByInscription,
-  getBotStrategiesByLevel, getBotStrategyByLevel, saveBotStrategyByLevel, saveBotStrategiesByLevel, deleteBotStrategiesByLevel, getActiveInscriptions,
-  getBotApiKey, saveBotApiKey, deleteBotApiKey,
   getTradingZones, getSmartZones, cleanOldZones,
   save
 };

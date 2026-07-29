@@ -38,6 +38,9 @@ function evaluate(klines, currentPrice) {
       target: fib500,
       stopLoss: null,
       score,
+      rsi: currentRSI,
+      fib_level: '61.8%',
+      drop_percent: ((drop / high) * 100).toFixed(2),
       signals: {
         type: 'spot_fib_long',
         high: high.toFixed(1), low: low.toFixed(1), dropPercent: ((drop / high) * 100).toFixed(2),
@@ -59,6 +62,9 @@ function evaluate(klines, currentPrice) {
       target: fib500,
       stopLoss: null,
       score,
+      rsi: currentRSI,
+      fib_level: '78.6%',
+      drop_percent: ((drop / high) * 100).toFixed(2),
       signals: {
         type: 'spot_fib_dca',
         high: high.toFixed(1), low: low.toFixed(1), dropPercent: ((drop / high) * 100).toFixed(2),
