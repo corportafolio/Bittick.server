@@ -98,7 +98,9 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
     closed_at TEXT,
     opportunity_id INTEGER,
     inscription_id TEXT,
-    address TEXT
+    address TEXT,
+    leverage INTEGER DEFAULT 1,
+    level INTEGER
   )`);
 
   try { db.run("ALTER TABLE positions ADD COLUMN horizonte TEXT DEFAULT 'horas'"); } catch (e) {}

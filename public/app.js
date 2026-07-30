@@ -36,7 +36,7 @@ var store = {
     },
     trading: {
       opportunities: [],
-      positions: { spot: [], futures: [] },
+      positions: { spot: { open: [], closed: [] }, futures: { open: [], closed: [] } },
       botStatus: { spot: null, futures: null },
       currentPrice: 0,
       priceChange24h: 0,
@@ -77,8 +77,12 @@ var store = {
         s.trading.opportunities = payload;
         break;
       case 'SET_POSITIONS':
-        if(payload.type === 'spot') s.trading.positions.spot = payload.data;
-        else if(payload.type === 'futures') s.trading.positions.futures = payload.data;
+        if(payload.type === 'spot') s.trading.positions.spot.open = payload.data;
+        else if(payload.type === 'futures') s.trading.positions.futures.open = payload.data;
+        break;
+      case 'SET_CLOSED_POSITIONS':
+        if(payload.type === 'spot') s.trading.positions.spot.closed = payload.data;
+        else if(payload.type === 'futures') s.trading.positions.futures.closed = payload.data;
         break;
       case 'SET_BOT_STATUS':
         if(payload.type === 'spot') s.trading.botStatus.spot = payload.data;
