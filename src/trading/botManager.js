@@ -77,15 +77,15 @@ async function evaluateAndExecute(signal, context = {}) {
       continue;
     }
 
-    const openPositions = store.getPositions(botType, 'open', context.address || null);
+    const openPositions = store.getPositionsByInscription(context.inscriptionId, 'open');
     if (openPositions.length >= config.max_positions) {
-      logger.info('bot-manager', `${botType} bot: max positions (${config.max_positions}) reached, skipping`);
+      logger.info('bot-manager', `${botType} bot: max positions (${config.max_positions}) reached for inscription ${context.inscriptionId}, skipping`);
       continue;
     }
 
     const alreadyOpen = openPositions.some(p => p.asset === signal.asset && p.strategy_type === signal.strategyType);
     if (alreadyOpen) {
-      logger.info('bot-manager', `${botType} bot: already open position on ${signal.asset} ${signal.strategyType}, skipping`);
+      logger.info('bot-manager', `${botType} bot: already open position on ${signal.asset} ${signal.strategyType} for inscription ${context.inscriptionId}, skipping`);
       continue;
     }
 

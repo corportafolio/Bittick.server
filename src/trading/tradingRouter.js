@@ -86,7 +86,14 @@ router.get('/positions', (req, res) => {
     }
     const botType = req.query.type || null;
     const status = req.query.status || 'open';
-    const positions = store.getPositions(botType, status, address);
+    const inscriptionId = req.query.inscription_id || null;
+    const includeClosed = req.query.include_closed === "true";
+    let positions;
+    if (inscriptionId) {
+      positions = store.getPositionsByInscription(inscriptionId, status, includeClosed);
+    } else {
+      positions = store.getPositions(botType, status, address, includeClosed);
+    }
     res.json({ exito: true, data: positions, tier: 'premium' });
   } catch (error) {
     logger.error('trading-api', `GET positions error: ${error.message}`);

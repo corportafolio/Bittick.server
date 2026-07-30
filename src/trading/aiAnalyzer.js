@@ -46,7 +46,7 @@ function construirDatos(signal) {
   return partes.join('\n');
 }
 
-function fallbackPorColor(signal, semaforo) {
+function fallbackInteligente(signal, semaforo) {
   const tipo = signal.strategyType === 'long' ? 'compra' : 'venta';
   const indicadores = [];
   if (signal.rsi) indicadores.push(`RSI en ${signal.rsi}`);
@@ -74,18 +74,27 @@ function fallbackPorColor(signal, semaforo) {
 }
 
 async function analyze(signal) {
-  const semaforo = calcularSemaforo(signal.score || 5, signal.confidence || 5);
+  const score = signal.score || 5;
+  const confidence = signal.confidence || 5;
+  const semaforo = calcularSemaforo(score, confidence);
   const datos = construirDatos(signal);
   const advertencias = semaforo === 'VERDE' ? 'Incluir advertencias o cautelas aunque sea una buena oportunidad.' : '';
 
-  const prompt = `
+  // Solo usar IA para oportunidades de alta calidad (score >= 7 Y confidence >= 7)
+  const usarIA = score >= 5 && confidence >= 4;
+
+  if (usarIA) {
+    const datos = construirDatos(signal);
+    const advertencias = semaforo === 'VERDE' ? 'Incluir advertencias o cautelas aunque sea una buena oportunidad.' : '';
+
+    const prompt = `
 Eres un analista financiero profesional en trading de Bitcoin.
 Analiza esta oportunidad y genera un veredicto claro y profesional, fácil de entender.
 
 DATOS DE LA OPERACIÓN:
 ${datos}
 
-SEMAFÓRO: ${semaforo}
+SEMÁFORO: ${semaforo}
 
 INSTRUCCIONES:
 - Si el semáforo es ROJO: explica POR QUÉ la operación es débil o riesgosa. Sé claro y directo.
@@ -109,31 +118,36 @@ Donde confianza es un número del 0 al 10.
 Donde horizonte es "minutos", "horas" o "dias".
   `.trim();
 
-  try {
-    const response = await aiConnector.askAgent(prompt);
-    if (response && response.success) {
-      const jsonMatch = response.respuesta.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        const horizonte = HORIZONTE_VALORES[parsed.horizonte] || inferHorizonte(signal);
-        return {
-          explanation: parsed.veredicto || parsed.explicacion || '',
-          zona_actual: parsed.zona_actual || null,
-          factors: parsed.factores || [],
-          risks: parsed.riesgos || [],
-          confidence: typeof parsed.confianza === 'number' ? parsed.confianza : Math.min(10, Math.max(0, Math.round((signal.score || 5) * 0.8 + 1))),
-          horizonte
-        };
+    try {
+      const response = await aiConnector.callAI(prompt);
+      if (response) {
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          const horizonte = HORIZONTE_VALORES[parsed.horizonte] || inferHorizonte(signal);
+          return {
+            explanation: parsed.veredicto || parsed.explicacion || '',
+            zona_actual: parsed.zona_actual || null,
+            factors: parsed.factores || [],
+            risks: parsed.riesgos || [],
+            confidence: typeof parsed.confianza === 'number' ? parsed.confianza : Math.min(10, Math.max(0, Math.round((signal.score || 5) * 0.8 + 1))),
+            horizonte
+          };
+        }
+        logger.warn('trading-ai', `AI response no JSON: ${response.substring(0, 100)}`);
+      } else {
+        logger.warn('trading-ai', 'AI returned empty response');
       }
-      logger.warn('trading-ai', `AI response no JSON: ${response.respuesta.substring(0, 100)}`);
-    } else {
-      logger.warn('trading-ai', `AI failed: ${response?.respuesta || 'unknown'}`);
+    } catch (error) {
+      logger.error('trading-ai', `AI analysis error: ${error.message}`);
     }
-  } catch (error) {
-    logger.error('trading-ai', `AI analysis error: ${error.message}`);
+
+    logger.warn('trading-ai', 'AI failed, using intelligent fallback');
   }
 
-  const fallback = fallbackPorColor(signal, semaforo);
+  // Fallback inteligente para oportunidades < 7/7 o si IA falla
+  logger.warn('trading-ai', 'Using intelligent fallback');
+  const fallback = fallbackInteligente(signal, semaforo);
   return {
     explanation: fallback.veredicto,
     zona_actual: fallback.zona_actual,

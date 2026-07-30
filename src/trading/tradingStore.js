@@ -380,9 +380,17 @@ function normalizePositionTimestamps(row) {
   return row;
 }
 
-function getPositions(botType = null, status = 'open', address = null) {
-  let sql = "SELECT * FROM positions WHERE status = ?";
-  const params = [status];
+function getPositions(botType = null, status = 'open', address = null, includeClosed = false) {
+  let sql = "";
+  const params = [];
+
+  if (status === 'open' && includeClosed) {
+    // Return both open and closed positions
+    sql = "SELECT * FROM positions WHERE status IN ('open', 'closed')";
+  } else {
+    sql = "SELECT * FROM positions WHERE status = ?";
+    params.push(status);
+  }
   if (botType) {
     sql += " AND bot_type = ?";
     params.push(botType);
@@ -529,9 +537,15 @@ function getBotStats(type) {
 // Use poolStore.getBotApiKey, poolStore.getUserInscriptions, etc.
 
 // Bot status/positions by inscription
-function getPositionsByInscription(inscriptionId, status = 'open') {
-  let sql = "SELECT * FROM positions WHERE inscription_id = ? AND status = ?";
-  const params = [inscriptionId, status];
+function getPositionsByInscription(inscriptionId, status = 'open', includeClosed = false) {
+  let sql;
+  const params = [inscriptionId];
+  if (includeClosed) {
+    sql = "SELECT * FROM positions WHERE inscription_id = ? AND status IN ('open', 'closed')";
+  } else {
+    sql = "SELECT * FROM positions WHERE inscription_id = ? AND status = ?";
+    params.push(status);
+  }
   sql += " ORDER BY opened_at DESC";
   const stmt = db.prepare(sql);
   stmt.bind(params);

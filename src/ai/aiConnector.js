@@ -2,20 +2,26 @@ const logger = require('../logger/logger');
 
 class AIConnector {
   constructor() {
-    this.apiEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
-    this.model = 'openai/gpt-4o-mini';
+    this.openRouterEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
+    this.openRouterModel = 'openai/gpt-4o-mini';
+    this.deepSeekEndpoint = 'https://api.deepseek.com/v1/chat/completions';
+    this.deepSeekModel = 'deepseek-chat';
   }
 
   hasApiKey() {
     return !!process.env.OPENROUTER_API_KEY;
   }
 
-  async callAI(tema, comunicacion, historial = []) {
+  hasDeepSeekKey() {
+    return !!process.env.DEEPSEEK_API_KEY;
+  }
+
+  async callOpenRouter(prompt, historial = []) {
     if (!process.env.OPENROUTER_API_KEY) {
       throw new Error('OPENROUTER_API_KEY not configured');
     }
 
-    const prompt = `${tema}\n\n${comunicacion || ''}`.trim();
+    const promptText = `${prompt}\n\n`.trim();
 
     const historialMessages = historial.map(h => ({
       role: h.rol === 'user' ? 'user' : 'assistant',
@@ -25,17 +31,17 @@ class AIConnector {
     const messages = [
       { role: 'system', content: 'Eres un analista de trading experto en Bitcoin. Respondes en español.' },
       ...historialMessages,
-      { role: 'user', content: prompt }
+      { role: 'user', content: promptText }
     ];
 
-    const response = await fetch(this.apiEndpoint, {
+    const response = await fetch(this.openRouterEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`
       },
       body: JSON.stringify({
-        model: this.model,
+        model: this.openRouterModel,
         messages,
         max_tokens: 500
       })
@@ -43,7 +49,9 @@ class AIConnector {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`OpenRouter HTTP ${response.status}: ${text}`);
+      const error = new Error(`OpenRouter HTTP ${response.status}: ${text}`);
+      error.status = response.status;
+      throw error;
     }
 
     const data = await response.json();
@@ -54,34 +62,94 @@ class AIConnector {
     return content.trim();
   }
 
+  async callDeepSeek(prompt, historial = []) {
+    if (!process.env.DEEPSEEK_API_KEY) {
+      throw new Error('DEEPSEEK_API_KEY not configured');
+    }
+
+    const promptText = `${prompt}\n\n`.trim();
+
+    const historialMessages = historial.map(h => ({
+      role: h.rol === 'user' ? 'user' : 'assistant',
+      content: h.texto
+    }));
+
+    const messages = [
+      { role: 'system', content: 'Eres un analista de trading experto en Bitcoin. Respondes en español.' },
+      ...historialMessages,
+      { role: 'user', content: promptText }
+    ];
+
+    const response = await fetch(this.deepSeekEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: this.deepSeekModel,
+        messages,
+        max_tokens: 500
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      const error = new Error(`DeepSeek HTTP ${response.status}: ${text}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('DeepSeek returned no content');
+    }
+    return content.trim();
+  }
+
+  async callAI(prompt, historial = []) {
+    // Try OpenRouter first
+    try {
+      return await this.callOpenRouter(prompt, historial);
+    } catch (error) {
+      // If OpenRouter fails due to credits (402), try DeepSeek
+      if (error.status === 402 && this.hasDeepSeekKey()) {
+        logger.warn('ai', 'OpenRouter 402 - trying DeepSeek fallback');
+        return await this.callDeepSeek(prompt, historial);
+      }
+      throw error;
+    }
+  }
+
   async investigate(tema, comunicacion) {
     logger.info('ai', `Investigating: ${(tema || '').substring(0, 80)}...`);
 
-    if (!process.env.OPENROUTER_API_KEY) {
-      return { success: false, respuesta: 'AI not configured (OPENROUTER_API_KEY missing)' };
+    if (!process.env.OPENROUTER_API_KEY && !process.env.DEEPSEEK_API_KEY) {
+      return { success: false, respuesta: 'AI not configured (no API keys)' };
     }
 
     try {
       const respuesta = await this.callAI(tema, comunicacion);
-      logger.info('ai', 'Investigation completed via OpenRouter');
+      logger.info('ai', 'Investigation completed via AI');
       return { success: true, respuesta };
     } catch (error) {
-      logger.warn('ai', `OpenRouter failed: ${error.message}`);
+      logger.warn('ai', `AI failed: ${error.message}`);
       return { success: false, respuesta: error.message };
     }
   }
 
   async askAgent(mensaje, historial = []) {
-    if (!process.env.OPENROUTER_API_KEY) {
-      return { success: false, respuesta: 'AI not configured (OPENROUTER_API_KEY missing)', agente: 'none' };
+    if (!process.env.OPENROUTER_API_KEY && !process.env.DEEPSEEK_API_KEY) {
+      return { success: false, respuesta: 'AI not configured (no API keys)', agente: 'none' };
     }
 
     try {
-      const respuesta = await this.callAI(mensaje, '', historial);
-      logger.info('ai', 'Agent responded via OpenRouter');
-      return { success: true, respuesta, agente: 'openrouter' };
+      const respuesta = await this.callAI(mensaje, historial);
+      logger.info('ai', 'Agent responded via AI');
+      return { success: true, respuesta, agente: 'openrouter-or-deepseek' };
     } catch (error) {
-      return { success: false, respuesta: error.message, agente: 'openrouter' };
+      return { success: false, respuesta: error.message, agente: 'openrouter-or-deepseek' };
     }
   }
 }

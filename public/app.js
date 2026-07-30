@@ -837,9 +837,12 @@ var polling = {
     var auth = !!store.state.auth.address;
     if (!auth) return;
     types.forEach(function(type) {
-      api.get('/api/trading/positions?status=open&type=' + type, true)
+      api.get('/api/trading/positions?include_closed=true&type=' + type, true)
         .then(function(json) {
-          store.dispatch('SET_POSITIONS', { type: type, data: json.data || [] });
+          var open = (json.data || []).filter(function(p) { return p.status === 'open'; });
+          var closed = (json.data || []).filter(function(p) { return p.status === 'closed'; });
+          store.dispatch('SET_POSITIONS', { type: type, data: open });
+          store.dispatch('SET_CLOSED_POSITIONS', { type: type, data: closed });
         })
         .catch(function(e) { console.error('Poll positions ' + type + ':', e); });
     });
@@ -1528,24 +1531,45 @@ function safeSetHTML(el, html) {
 function renderSpotPositions() {
   var el = els['spot-positions-list'];
   if (!el) return;
-  var positions = store.state.trading.positions.spot || [];
-  if (!positions.length) {
-    safeSetHTML(el, '<p class="empty-text">Sin posiciones abiertas</p>');
+  var positions = store.state.trading.positions.spot || { open: [], closed: [] };
+  var open = positions.open || [];
+  var closed = positions.closed || [];
+  
+  if (!open.length && !closed.length) {
+    safeSetHTML(el, '<p class="empty-text">Sin posiciones</p>');
     return;
   }
-  safeSetHTML(el, positions.map(renderPositionItem).join(''));
+  
+  var html = '<div class="open-positions">' + open.map(renderPositionItem).join('') + '</div>';
+  if (closed.length) {
+    html += '<div class="closed-positions-section"><h4>Posiciones Cerradas (30 días)</h4>' + 
+      closed.map(function(p) { return renderPositionItem(p) + '<div class="position-closed-badge">CERRADA</div>'; }).join('') + 
+      '</div>';
+  }
+  
+  safeSetHTML(el, html);
   bindPositionActions(el, 'spot');
 }
 
 function renderFuturesPositions() {
   var el = els['futures-positions-list'];
   if (!el) return;
-  var positions = store.state.trading.positions.futures || [];
-  if (!positions.length) {
-    safeSetHTML(el, '<p class="empty-text">Sin posiciones abiertas</p>');
+  var positions = store.state.trading.positions.futures || { open: [], closed: [] };
+  var open = positions.open || [];
+  var closed = positions.closed || [];
+  
+  if (!open.length && !closed.length) {
+    safeSetHTML(el, '<p class="empty-text">Sin posiciones</p>');
     return;
   }
-  safeSetHTML(el, positions.map(renderPositionItem).join(''));
+  
+  var html = '<div class="open-positions">' + open.map(renderPositionItem).join('') + '</div>';
+  if (closed.length) {
+    html += '<div class="closed-positions-section"><h4>Posiciones Cerradas (30 días)</h4>' + 
+      closed.map(function(p) { return renderPositionItem(p) + '<div class="position-closed-badge">CERRADA</div>'; }).join('') + 
+      '</div>';
+  }
+  safeSetHTML(el, html);
   bindPositionActions(el, 'futures');
 }
 
