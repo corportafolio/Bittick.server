@@ -39,7 +39,7 @@ async function executeOrder(botType, signal, options = {}, level = null) {
       botType,
       strategyType: signal.strategyType,
       asset: signal.asset,
-      entryPrice: parseFloat(result.fills?.[0]?.price || result.price || signal.currentPrice),
+      entryPrice: parseFloat(result.fills?.[0]?.price) || parseFloat(result.price) || signal.currentPrice,
       quantity: parseFloat(result.executedQty || orderQuantity),
       orderId: result.orderId,
       status: "open",

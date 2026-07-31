@@ -365,7 +365,7 @@ function insertPosition(pos) {
 
   const stmt = db.prepare(`INSERT INTO positions
     (bot_type, strategy_type, asset, entry_price, current_price, quantity, order_id, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, usd_amount, status, pnl, pnl_percent, inscription_id, address, opportunity_id, level)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, 0, ?, ?)`);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, 0, ?, ?, ?, ?)`);
   stmt.run([pos.botType, pos.strategyType, pos.asset, entryPrice, initialCurrentPrice,
     pos.quantity, pos.orderId || null, pos.target || null, pos.stopLoss || null,
     pos.score || 0, pos.confidence || 0, pos.explanation || '',
