@@ -77,7 +77,7 @@ async function evaluateAndExecute(signal, context = {}) {
       continue;
     }
 
-    const openPositions = store.getPositionsByInscription(context.inscriptionId, "open");
+    const openPositions = store.getPositionsByInscription(context.inscriptionId, "open").filter(function(p) { return p.bot_type === botType; });
     if (openPositions.length >= config.max_positions) {
       logger.info("bot-manager", `${botType} bot: max positions (${config.max_positions}) reached for inscription ${context.inscriptionId}, skipping`);
       continue;

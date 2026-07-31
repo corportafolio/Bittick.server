@@ -366,14 +366,14 @@ function insertPosition(pos) {
   const initialCurrentPrice = (pos.currentPrice && pos.currentPrice > 0) ? pos.currentPrice : entryPrice;
 
   const stmt = db.prepare(`INSERT INTO positions
-    (bot_type, strategy_type, asset, entry_price, current_price, quantity, order_id, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, usd_amount, status, pnl, pnl_percent, inscription_id, address, opportunity_id, level)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, 0, ?, ?, ?, ?)`);
+    (bot_type, strategy_type, asset, entry_price, current_price, quantity, order_id, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, usd_amount, status, pnl, pnl_percent, inscription_id, address, opened_at, opportunity_id, level)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, 0, ?, ?, ?, ?, ?)`);
   stmt.run([pos.botType, pos.strategyType, pos.asset, entryPrice, initialCurrentPrice,
     pos.quantity, pos.orderId || null, pos.target || null, pos.stopLoss || null,
     pos.score || 0, pos.confidence || 0, pos.explanation || '',
     JSON.stringify(pos.factors || []), JSON.stringify(pos.risks || []),
     JSON.stringify(pos.signals || {}), pos.horizonte || 'horas', pos.usdAmount || 0,
-    pos.inscriptionId || null, pos.address || null, pos.opportunity_id || null, pos.level || null]);
+    pos.inscriptionId || null, pos.address || null, new Date().toISOString().replace('T', ' ').substring(0, 19), pos.opportunity_id || null, pos.level || null]);
   stmt.free();
   const id = db.exec("SELECT last_insert_rowid() as id")[0].values[0][0];
   save();
