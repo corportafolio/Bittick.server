@@ -1614,6 +1614,7 @@ async function closePosition(posId, type) {
 }
 
 async function dismissPosition(posId, type) {
+  if (!confirm("Descartar esta posicion cerrada?")) return;
   try {
     var res = await api.post('/api/trading/positions/dismiss', {
       positionId: posId,
@@ -1667,7 +1668,7 @@ function renderPositionItem(p) {
       '<span class="badge-type ' + badgeTypeClass + '">' + badgeTypeLabel + '</span>' +
       '<span class="position-symbol">' + (symbol || '') + '</span>' +
       '<span class="badge-status ' + badgeStatusClass + '">' + badgeStatusLabel + '</span>' +
-      '<span class="position-pnl ' + (isPos ? 'positive' : 'negative') + '" style="margin-left:auto">' + (isPos ? '+' : '') + pnl.toFixed(2) + ' USDT</span>' +
+      '<span class="position-pnl ' + (isPos ? 'positive' : 'negative') + '" style="margin-left:auto">' + (isPos ? '+' : '') + pnl.toFixed(2) + ' USDT' + (isOpen ? '' : ' (' + pnlPct.toFixed(2) + '%)') + '</span>' +
     '</div>' +
     '<div class="position-details">' +
       '<span>Puntaje: ' + score + '/10</span>' +
@@ -1689,10 +1690,12 @@ function renderPositionItem(p) {
     }
   } else {
     var closedPriceFmt = p.current_price ? formatPrice(p.current_price) : currentPriceFmt;
+    var leverageStr = p.leverage ? p.leverage + 'x' : '1x';
     html +=
       '<div class="price-item"><span class="price-label">Entrada</span><span class="price-value">' + entryPriceFmt + '</span></div>' +
       '<div class="price-item"><span class="price-label">Cerrada</span><span class="price-value">' + closedPriceFmt + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPriceFmt + '</span></div>';
+      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">Apalancamiento</span><span class="price-value">' + leverageStr + '</span></div>';
   }
 
   html += '</div>' +
@@ -1717,12 +1720,8 @@ function renderPositionItem(p) {
         '<button class="btn btn-danger btn-sm" id="' + closeBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '">CERRAR POSICIÓN</button>' +
       '</div>';
   } else {
-    var finalPnl = parseFloat(p.pnl || 0);
-    var finalPnlPct = parseFloat(p.pnl_percent || 0);
-    var finalPnlPos = finalPnl >= 0;
     var dismissBtnId = 'dismiss-pos-' + (p.id || 'unknown');
     html +=
-      '<div class="position-final-pnl ' + (finalPnlPos ? 'positive' : 'negative') + '">PNL: ' + (finalPnlPos ? '+' : '') + finalPnl.toFixed(2) + ' USDT (' + (finalPnlPos ? '+' : '') + finalPnlPct.toFixed(2) + '%)</div>' +
       '<div class="position-actions">' +
         '<button class="btn btn-secondary btn-sm" id="' + dismissBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">[🗑] Descartar</button>' +
       '</div>';

@@ -107,6 +107,8 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
   try { db.run("ALTER TABLE positions ADD COLUMN usd_amount REAL DEFAULT 0"); } catch (e) {}
   try { db.run("ALTER TABLE positions ADD COLUMN inscription_id TEXT"); } catch (e) {}
   try { db.run("ALTER TABLE positions ADD COLUMN address TEXT"); } catch (e) {}
+  try { db.run("ALTER TABLE positions ADD COLUMN leverage INTEGER DEFAULT 1"); } catch (e) {}
+  try { db.run("ALTER TABLE positions ADD COLUMN level INTEGER"); } catch (e) {}
   try { db.run("ALTER TABLE positions ADD COLUMN close_reason TEXT DEFAULT ''"); } catch (e) {}
 
   // PnL history table - preserves realized PnL after position cleanup
@@ -201,16 +203,16 @@ db.run(`CREATE TABLE IF NOT EXISTS opportunities (
 
   const spotBot = db.exec("SELECT COUNT(*) as c FROM bot_config WHERE type = 'spot'");
   if (!spotBot[0] || spotBot[0].values[0][0] === 0) {
-    db.run("INSERT INTO bot_config (type, enabled, max_positions, position_size_usdt, min_confidence) VALUES ('spot', 1, 5, 10, 5)");
+    db.run("INSERT INTO bot_config (type, enabled, max_positions, position_size_usdt, min_confidence) VALUES ('spot', 1, 10, 10, 5)");
     save();
   }
   const futuresBot = db.exec("SELECT COUNT(*) as c FROM bot_config WHERE type = 'futures'");
   if (!futuresBot[0] || futuresBot[0].values[0][0] === 0) {
-    db.run("INSERT INTO bot_config (type, enabled, max_positions, position_size_usdt, min_confidence) VALUES ('futures', 1, 5, 10, 5)");
+    db.run("INSERT INTO bot_config (type, enabled, max_positions, position_size_usdt, min_confidence) VALUES ('futures', 1, 10, 10, 5)");
     save();
   }
 
-  db.run("UPDATE bot_config SET max_positions = 5 WHERE max_positions < 5");
+  db.run("UPDATE bot_config SET max_positions = 10 WHERE max_positions < 10");
   db.run("UPDATE bot_config SET min_confidence = 5 WHERE min_confidence > 5");
   save();
 
@@ -362,14 +364,14 @@ function insertPosition(pos) {
   const initialCurrentPrice = (pos.currentPrice && pos.currentPrice > 0) ? pos.currentPrice : entryPrice;
 
   const stmt = db.prepare(`INSERT INTO positions
-    (bot_type, strategy_type, asset, entry_price, current_price, quantity, order_id, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, usd_amount, status, pnl, pnl_percent, inscription_id, address)
+    (bot_type, strategy_type, asset, entry_price, current_price, quantity, order_id, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, usd_amount, status, pnl, pnl_percent, inscription_id, address, opportunity_id, level)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', 0, 0, ?, ?)`);
   stmt.run([pos.botType, pos.strategyType, pos.asset, entryPrice, initialCurrentPrice,
     pos.quantity, pos.orderId || null, pos.target || null, pos.stopLoss || null,
     pos.score || 0, pos.confidence || 0, pos.explanation || '',
     JSON.stringify(pos.factors || []), JSON.stringify(pos.risks || []),
     JSON.stringify(pos.signals || {}), pos.horizonte || 'horas', pos.usdAmount || 0,
-    pos.inscriptionId || null, pos.address || null]);
+    pos.inscriptionId || null, pos.address || null, pos.opportunity_id || null, pos.level || null]);
   stmt.free();
   const id = db.exec("SELECT last_insert_rowid() as id")[0].values[0][0];
   save();
