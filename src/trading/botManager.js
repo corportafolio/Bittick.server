@@ -30,12 +30,6 @@ async function evaluateAndExecute(signal, context = {}) {
 
   const score = Math.round(signal.score || 0);
   const confidence = Math.round(signal.confidence || 0);
-  const nivel = Math.min(score, confidence);
-
-  if (nivel < 6) {
-    logger.info("bot-manager", `Signal score=${score} confidence=${confidence} (nivel=${nivel}) below minimum, skipping`);
-    return results;
-  }
 
   const targetBotType = signal.botType || "futures";
   const botTypes = targetBotType === "spot" ? ["spot"] : ["futures"];
@@ -46,36 +40,18 @@ async function evaluateAndExecute(signal, context = {}) {
 
     if (botType === "spot" && signal.strategyType !== "long") continue;
 
-    let usdAmount = null;
-    let leverage = 1;
-    let levelEnabled = true;
+    const allLevels = pool.getBotStrategiesByLevel(context.inscriptionId, botType);
+    const matchedLevel = allLevels.find(function(l) {
+      return l.enabled && score === l.min_score && confidence === l.min_confidence;
+    });
 
-    if (context.inscriptionId) {
-      const levelConfig = pool.getBotStrategyByLevel(context.inscriptionId, botType, nivel);
-      if (levelConfig) {
-        levelEnabled = !!levelConfig.enabled;
-        usdAmount = levelConfig.position_size_usdt;
-        leverage = levelConfig.leverage || 1;
-        if (levelConfig.min_score && score < levelConfig.min_score) {
-          logger.info("bot-manager", `${botType} bot: score ${score} < min_score ${levelConfig.min_score} for level ${nivel}, skipping`);
-          continue;
-        }
-        if (levelConfig.min_confidence && confidence < levelConfig.min_confidence) {
-          logger.info("bot-manager", `${botType} bot: confidence ${confidence} < min_confidence ${levelConfig.min_confidence} for level ${nivel}, skipping`);
-          continue;
-        }
-      }
-    }
-
-    if (!levelEnabled) {
-      logger.info("bot-manager", `${botType} bot: nivel ${nivel} disabled for inscription, skipping`);
+    if (!matchedLevel) {
       continue;
     }
 
-    if (confidence < config.min_confidence) {
-      logger.info("bot-manager", `${botType} bot: confidence ${confidence} < min ${config.min_confidence}, skipping`);
-      continue;
-    }
+    const nivel = matchedLevel.level;
+    const usdAmount = matchedLevel.position_size_usdt;
+    const leverage = matchedLevel.leverage || 1;
 
     const openPositions = store.getPositionsByInscription(context.inscriptionId, "open").filter(function(p) { return p.bot_type === botType; });
     if (openPositions.length >= config.max_positions) {
@@ -90,12 +66,10 @@ async function evaluateAndExecute(signal, context = {}) {
     }
 
     if (!usdAmount) {
-      const tierFallback = getTierConfig(nivel);
-      if (!tierFallback) continue;
       const budgetKey = botType === "spot" ? "BOT_SPOT_BUDGET" : "BOT_FUTURES_BUDGET";
       const budget = parseFloat(process.env[budgetKey] || "100");
-      usdAmount = (budget * tierFallback.percent) / 100;
-      leverage = tierFallback.leverage;
+      usdAmount = (budget * 10) / 100;
+      leverage = 1;
     }
 
     if (context.inscriptionId) {
