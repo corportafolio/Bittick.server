@@ -264,6 +264,8 @@ function insertOpportunity(op) {
   ]);
   stmt.free();
   save();
+  const id = db.exec("SELECT last_insert_rowid() as id")[0].values[0][0];
+  return id;
 }
 
 const OPP_COLS = 'id, asset, strategy_type, price, entry_zone, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, status, created_at, bot_type, rsi, open_interest, ema_50, sma_20, support_zone, resistance_zone, atr, volume_ratio, zone_type, zone_mid, zone_strength, zone_start, zone_end, rise_percent, sma_50, sma_ema, drop_pct, rise_pct, distance_pct, volume_spike, fib_levels, distance_from_sma, magnet_zone_mid, magnet_zone_strength, back_price, through_back, fast_move, volume_high, volume_surge, drop_percent, zona_actual';

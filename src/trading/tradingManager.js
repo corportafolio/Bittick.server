@@ -68,12 +68,12 @@ const mapIndicators = (sig) => ({
 
         const indicatorFields = mapIndicators(signal);
         const futuresOp = { ...base, botType: 'futures', ...indicatorFields };
-        store.insertOpportunity(futuresOp);
+        futuresOp.id = store.insertOpportunity(futuresOp);
         results.push(futuresOp);
         signals.push(futuresOp);
 if (signal.strategyType === 'long') {
           const spotOp = { ...base, botType: 'spot', ...indicatorFields };
-          store.insertOpportunity(spotOp);
+          spotOp.id = store.insertOpportunity(spotOp);
           results.push(spotOp);
           signals.push(spotOp);
         }
