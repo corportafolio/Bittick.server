@@ -83,7 +83,7 @@ async function evaluateAndExecute(signal, context = {}) {
       continue;
     }
 
-    const alreadyOpen = openPositions.some(p => p.opportunity_id === signal.id);
+    const alreadyOpen = openPositions.some(p => p.level === nivel);
     if (alreadyOpen) {
       logger.info("bot-manager", `${botType} bot: already open position on ${signal.asset} ${signal.strategyType} for inscription ${context.inscriptionId}, skipping`);
       continue;
@@ -113,6 +113,7 @@ async function evaluateAndExecute(signal, context = {}) {
       position.risks = signal.risks;
       position.signals = signal.signals;
       position.usdAmount = usdAmount;
+      position.opportunity_id = signal.id;
       position.inscriptionId = context.inscriptionId || null;
       position.address = context.address || null;
       position.leverage = leverage;
