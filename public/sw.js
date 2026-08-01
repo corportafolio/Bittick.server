@@ -4,7 +4,7 @@
    Auto-updates on every page load
    Forces reload when new SW detected
 */
-var CACHE_NAME = 'bittick-static-v20';
+var CACHE_NAME = 'bittick-static-v21';
 
 self.addEventListener('install', function(e){
   self.skipWaiting();

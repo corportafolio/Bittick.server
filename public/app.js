@@ -1815,7 +1815,7 @@ function bindPositionActions(container, type) {
 }
 
 async function closePosition(posId, type) {
-  var confirmed = window.confirm(t('confirm_close_position'));
+  var confirmed = await confirmModal(t('confirm_close_position'));
   if (!confirmed) return;
   try {
     var res = await api.post('/api/trading/positions/' + posId + '/close', {
@@ -1833,7 +1833,8 @@ async function closePosition(posId, type) {
 }
 
 async function dismissPosition(posId, type) {
-  if (!confirm(t('confirm_dismiss'))) return;
+  var confirmed = await confirmModal(t('confirm_dismiss'));
+  if (!confirmed) return;
   try {
     var res = await api.post('/api/trading/positions/dismiss', {
       positionId: posId,
@@ -1848,6 +1849,30 @@ async function dismissPosition(posId, type) {
   } catch (e) {
     toast('Error: ' + e.message, 'error');
   }
+}
+
+function confirmModal(message) {
+  return new Promise(function(resolve) {
+    var confirmBtnId = 'confirm-modal-yes';
+    var cancelBtnId = 'confirm-modal-no';
+    showModal(
+      '<div style="padding:24px;text-align:center">' +
+        '<h3 style="margin-bottom:16px">' + message + '</h3>' +
+        '<div style="display:flex;gap:12px;justify-content:center">' +
+          '<button id="' + confirmBtnId + '" class="btn btn-danger">' + t('confirm') + '</button>' +
+          '<button id="' + cancelBtnId + '" class="btn btn-secondary">' + t('cancel') + '</button>' +
+        '</div>' +
+      '</div>'
+    );
+    document.getElementById(confirmBtnId).addEventListener('click', function() {
+      hideModal();
+      resolve(true);
+    }, { once: true });
+    document.getElementById(cancelBtnId).addEventListener('click', function() {
+      hideModal();
+      resolve(false);
+    }, { once: true });
+  });
 }
 
 function renderPositionItem(p) {
