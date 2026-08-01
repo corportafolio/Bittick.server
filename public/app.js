@@ -1480,8 +1480,9 @@ function renderOpportunities() {
         if (!isNaN(oppDate.getTime())) {
           var now = new Date();
           var esHoy = oppDate.toDateString() === now.toDateString();
-          var hora = oppDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-          var fechaTxt = esHoy ? t('today') : oppDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+          var locale = currentLang === 'es' ? 'es-AR' : 'en-US';
+          var hora = oppDate.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+          var fechaTxt = esHoy ? t('today') : oppDate.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: '2-digit' });
           fechaHTML = '<div class="opp-card-footer">' +
             '<span class="opp-card-time">' + hora + '</span>' +
             '<span class="opp-card-date">' + fechaTxt + '</span>' +
@@ -1510,7 +1511,7 @@ function renderOpportunities() {
     if (val(opp.distance_from_sma)) detailParts.push(t('distance_sma') + ' ' + opp.distance_from_sma + '%');
     if (val(opp.distance_pct)) detailParts.push(t('distance') + ' ' + opp.distance_pct + '%');
     if (val(opp.fib_levels)) detailParts.push(t('fib_level') + ' ' + opp.fib_levels);
-    if (val(opp.zone_type)) detailParts.push(t('zone') + ' ' + opp.zone_type + (val(opp.zone_strength) ? ' (fuerza x' + opp.zone_strength + ')' : ''));
+    if (val(opp.zone_type)) detailParts.push(t('zone') + ' ' + (opp.zone_type === 'soporte' ? t('support') : opp.zone_type === 'resistencia' ? t('resistance') : opp.zone_type) + (val(opp.zone_strength) ? ' (' + t('strength') + ' x' + opp.zone_strength + ')' : ''));
     if (val(opp.zone_mid)) detailParts.push(t('mid_zone') + ' ' + opp.zone_mid);
     if (val(opp.through_back)) detailParts.push(t('breakout') + ' ' + (opp.through_back === 1 ? t('confirmed') : t('not_confirmed')));
     if (val(opp.volume_ratio)) detailParts.push(t('volume') + ' x' + opp.volume_ratio);
@@ -1524,16 +1525,23 @@ function renderOpportunities() {
       var parsedRisks = typeof opp.risks === 'string' ? JSON.parse(opp.risks) : opp.risks;
       if (parsedRisks && parsedRisks.length) detailParts.push(t('risks') + ': ' + parsedRisks.join(', '));
     } catch (_) {}
-    detailParts.push(t('traffic_light') + ': ' + semaforo + (semaforo === 'ROJO' ? ' — ' + t('caution') : semaforo === 'AMARILLO' ? ' — ' + t('have_caution') : ' — ' + t('good_opportunity')));
+    detailParts.push(t('traffic_light') + ': ' + t('light_' + semaforo.toLowerCase()) + (semaforo === 'ROJO' ? ' — ' + t('caution') : semaforo === 'AMARILLO' ? ' — ' + t('have_caution') : ' — ' + t('good_opportunity')));
 
     var detailText = detailParts.join(', ');
 
+    function truncateText(str, max) {
+      str = String(str || '');
+      return str.length > max ? str.slice(0, max - 1).trimEnd() + '…' : str;
+    }
+
+    var collapsedText = truncateText(opp.ai_explanation || '', 50) || firstLineText || detailText;
+
     var analysisHTML = '';
-    if (firstLineText || detailText) {
+    if (collapsedText) {
       analysisHTML = '<div class="opp-card-analysis">' +
-        '<span class="analysis-text">' + (firstLineText || detailText) + '</span>' +
-        (detailText && firstLineText ? '<span class="analysis-expand" data-opp-id="' + (opp.id || '') + '">🔍</span>' : '') +
-        (firstLineText ? '<span class="analysis-detail">' + detailText + '</span>' : '') +
+        '<span class="analysis-text">' + collapsedText + '</span>' +
+        (detailText && collapsedText !== detailText ? '<span class="analysis-expand" data-opp-id="' + (opp.id || '') + '">🔍</span>' : '') +
+        (collapsedText !== detailText ? '<span class="analysis-detail">' + detailText + '</span>' : '') +
       '</div>';
     }
 

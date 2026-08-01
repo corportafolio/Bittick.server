@@ -1,6 +1,7 @@
 const aiConnector = require('../ai/aiConnector');
 const logger = require('../logger/logger');
 
+const TRAFFIC_LIGHT_EN = { VERDE: 'GREEN', AMARILLO: 'YELLOW', ROJO: 'RED' };
 const HORIZONTE_VALORES = { minutos: 'minutos', horas: 'horas', dias: 'dias' };
 
 function inferHorizonte(signal) {
@@ -19,57 +20,58 @@ function calcularSemaforo(score, confidence) {
 }
 
 function construirDatos(signal) {
-  const tipo = signal.strategyType === 'long' ? 'LONG (COMPRA)' : 'SHORT (VENTA)';
+  const tipo = signal.strategyType === 'long' ? 'LONG (BUY)' : 'SHORT (SELL)';
   const zona = signal.zone_type
-    ? `Zona ${signal.zone_type}${signal.zone_mid ? ` media: $${signal.zone_mid}` : ''}${signal.zone_strength ? ` (fuerza ${signal.zone_strength}/10)` : ''}`
+    ? `Zone ${signal.zone_type}${signal.zone_mid ? ` mid: $${signal.zone_mid}` : ''}${signal.zone_strength ? ` (strength ${signal.zone_strength}/10)` : ''}`
     : null;
-  const soporte = signal.support_zone ? `Soporte: $${signal.support_zone}` : null;
-  const resistencia = signal.resistance_zone ? `Resistencia: $${signal.resistance_zone}` : null;
+  const soporte = signal.support_zone ? `Support: $${signal.support_zone}` : null;
+  const resistencia = signal.resistance_zone ? `Resistance: $${signal.resistance_zone}` : null;
   const partes = [
-    `Activo: ${signal.asset}`,
-    `Tipo: ${tipo}`,
-    `Precio actual: $${signal.currentPrice}`,
-    `Entrada: ${signal.entryZone}`,
-    `Objetivo: $${signal.target}`,
+    `Asset: ${signal.asset}`,
+    `Type: ${tipo}`,
+    `Current price: $${signal.currentPrice}`,
+    `Entry: ${signal.entryZone}`,
+    `Target: $${signal.target}`,
     signal.stopLoss ? `Stop Loss: $${signal.stopLoss}` : null,
     signal.rsi ? `RSI: ${signal.rsi}` : null,
     signal.sma_20 ? `SMA20: ${signal.sma_20}` : null,
     signal.sma_50 ? `SMA50: ${signal.sma_50}` : null,
     signal.ema_50 ? `EMA50: ${signal.ema_50}` : null,
     signal.atr ? `ATR: ${signal.atr}` : null,
-    signal.distance_pct ? `Distancia: ${signal.distance_pct}%` : null,
+    signal.distance_pct ? `Distance: ${signal.distance_pct}%` : null,
     soporte,
     resistencia,
     zona,
-    signal.fib_levels ? `Nivel Fib: ${signal.fib_levels}` : null,
+    signal.fib_levels ? `Fib level: ${signal.fib_levels}` : null,
   ].filter(Boolean);
   return partes.join('\n');
 }
 
 function fallbackInteligente(signal, semaforo) {
-  const tipo = signal.strategyType === 'long' ? 'compra' : 'venta';
+  const tipo = signal.strategyType === 'long' ? 'long' : 'short';
+  const zoneName = signal.zone_type === 'soporte' ? 'support' : signal.zone_type === 'resistencia' ? 'resistance' : (signal.zone_type || '');
   const indicadores = [];
-  if (signal.rsi) indicadores.push(`RSI en ${signal.rsi}`);
-  if (signal.support_zone) indicadores.push(`soporte en $${signal.support_zone}`);
-  if (signal.resistance_zone) indicadores.push(`resistencia en $${signal.resistance_zone}`);
-  if (signal.zone_type) indicadores.push(`zona ${signal.zone_type}`);
-  const textoIndicadores = indicadores.length ? ` Los indicadores muestran: ${indicadores.join(', ')}.` : '';
+  if (signal.rsi) indicadores.push(`RSI ${signal.rsi}`);
+  if (signal.support_zone) indicadores.push(`support $${signal.support_zone}`);
+  if (signal.resistance_zone) indicadores.push(`resistance $${signal.resistance_zone}`);
+  if (zoneName) indicadores.push(`${zoneName} zone`);
+  const textoIndicadores = indicadores.length ? ` Indicators: ${indicadores.join(', ')}.` : '';
 
   if (semaforo === 'ROJO') {
     return {
-      veredicto: `Operación de ${tipo} con señales débiles. Score y confianza bajos.${textoIndicadores} No se recomienda operar en este nivel.`,
-      zona_actual: signal.zone_type ? `El precio se encuentra en zona ${signal.zone_type}${signal.zone_mid ? ` (media $${signal.zone_mid})` : ''}.` : null,
+      veredicto: `Weak ${tipo} signal, low score.${textoIndicadores} Not recommended at this level.`,
+      zona_actual: zoneName ? `Price in ${zoneName} zone${signal.zone_mid ? ` (mid $${signal.zone_mid})` : ''}.` : null,
     };
   }
   if (semaforo === 'AMARILLO') {
     return {
-      veredicto: `Señal moderada de ${tipo} con potencial pero requiere precaución.${textoIndicadores} Evaluar gestión de riesgo antes de entrar.`,
-      zona_actual: signal.zone_type ? `El precio se encuentra en zona ${signal.zone_type}${signal.zone_mid ? ` (media $${signal.zone_mid})` : ''}.` : null,
+      veredicto: `Moderate ${tipo} signal, needs caution.${textoIndicadores} Manage risk before entry.`,
+      zona_actual: zoneName ? `Price in ${zoneName} zone${signal.zone_mid ? ` (mid $${signal.zone_mid})` : ''}.` : null,
     };
   }
   return {
-    veredicto: `Oportunidad de ${tipo} con señales favorables.${textoIndicadores} Mantener stop loss y tomar ganancias parciales.`,
-    zona_actual: signal.zone_type ? `El precio se encuentra en zona ${signal.zone_type}${signal.zone_mid ? ` (media $${signal.zone_mid})` : ''}.` : null,
+    veredicto: `Good ${tipo} opportunity.${textoIndicadores} Keep stop loss, take partial profits.`,
+    zona_actual: zoneName ? `Price in ${zoneName} zone${signal.zone_mid ? ` (mid $${signal.zone_mid})` : ''}.` : null,
   };
 }
 
@@ -78,44 +80,45 @@ async function analyze(signal) {
   const confidence = signal.confidence || 5;
   const semaforo = calcularSemaforo(score, confidence);
   const datos = construirDatos(signal);
-  const advertencias = semaforo === 'VERDE' ? 'Incluir advertencias o cautelas aunque sea una buena oportunidad.' : '';
 
   // Solo usar IA para oportunidades de alta calidad (score >= 7 Y confidence >= 7)
   const usarIA = score >= 5 && confidence >= 4;
 
   if (usarIA) {
     const datos = construirDatos(signal);
-    const advertencias = semaforo === 'VERDE' ? 'Incluir advertencias o cautelas aunque sea una buena oportunidad.' : '';
 
     const prompt = `
-Eres un analista financiero profesional en trading de Bitcoin.
-Analiza esta oportunidad y genera un veredicto claro y profesional, fácil de entender.
+You are a professional Bitcoin trading analyst.
+Analyze this trade and give a clear, concise professional verdict.
 
-DATOS DE LA OPERACIÓN:
+TRADE DATA:
 ${datos}
 
-SEMÁFORO: ${semaforo}
+TRAFFIC LIGHT: ${TRAFFIC_LIGHT_EN[semaforo] || semaforo}
 
-INSTRUCCIONES:
-- Si el semáforo es ROJO: explica POR QUÉ la operación es débil o riesgosa. Sé claro y directo.
-- Si el semáforo es AMARILLO: explica por qué hay que tener precaución, qué factores son favorables y cuáles no.
-- Si el semáforo es VERDE: explica por qué es una buena oportunidad, pero incluye advertencias o cautelas.
-${advertencias}
-- Describe en qué zona del gráfico se encuentra el precio (soporte, resistencia, zona de acumulación, etc.).
-- El veredicto debe ser 1-2 oraciones, profesional pero no excesivamente técnico.
+INSTRUCTIONS:
+- RED light: explain WHY the trade is weak or risky. Max 50 characters.
+- YELLOW light: explain the caution needed and key positives/negatives. Max 50 characters.
+- GREEN light: explain why it is a good opportunity, include one warning. Max 50 characters.
+- Describe the current price zone in max 30 characters.
+- The verdict must be max 50 characters. Short and professional.
 
-Responde ÚNICAMENTE con un JSON válido:
+Respond ONLY with valid JSON:
 {
-  "veredicto": "Texto del veredicto profesional",
-  "zona_actual": "Descripción de la zona del gráfico donde está el precio",
+  "veredicto": "Professional verdict (max 50 characters)",
+  "zona_actual": "Price zone (max 30 characters)",
   "factores": ["factor1", "factor2"],
-  "riesgos": ["riesgo1", "riesgo2"],
+  "riesgos": ["risk1", "risk2"],
   "confianza": 8,
   "horizonte": "horas"
 }
 
-Donde confianza es un número del 0 al 10.
-Donde horizonte es "minutos", "horas" o "dias".
+Rules:
+- "veredicto" must be max 50 characters.
+- "zona_actual" must be max 30 characters.
+- "factores" and "riesgos": max 2 items each, max 35 characters per item.
+- "confianza" is a number from 0 to 10.
+- "horizonte" is "minutos", "horas" or "dias".
   `.trim();
 
     try {
@@ -125,11 +128,13 @@ Donde horizonte es "minutos", "horas" o "dias".
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           const horizonte = HORIZONTE_VALORES[parsed.horizonte] || inferHorizonte(signal);
+          const trim = (str, max) => typeof str === 'string' ? (str.trim().length > max ? str.trim().slice(0, max - 1).trimEnd() + '…' : str.trim()) : '';
+          const capItems = (arr, max, maxItem) => Array.isArray(arr) ? arr.slice(0, max).map(i => typeof i === 'string' ? (i.length > maxItem ? i.slice(0, maxItem - 1) + '…' : i) : String(i)) : [];
           return {
-            explanation: parsed.veredicto || parsed.explicacion || '',
-            zona_actual: parsed.zona_actual || null,
-            factors: parsed.factores || [],
-            risks: parsed.riesgos || [],
+            explanation: trim(parsed.veredicto || parsed.explicacion || '', 50),
+            zona_actual: trim(parsed.zona_actual || '', 30) || null,
+            factors: capItems(parsed.factores, 2, 35),
+            risks: capItems(parsed.riesgos, 2, 35),
             confidence: typeof parsed.confianza === 'number' ? parsed.confianza : Math.min(10, Math.max(0, Math.round((signal.score || 5) * 0.8 + 1))),
             horizonte
           };

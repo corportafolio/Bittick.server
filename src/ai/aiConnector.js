@@ -29,7 +29,7 @@ class AIConnector {
     }));
 
     const messages = [
-      { role: 'system', content: 'Eres un analista de trading experto en Bitcoin. Respondes en español.' },
+      { role: 'system', content: 'You are an expert Bitcoin trading analyst. Be concise. Max 50 words per response.' },
       ...historialMessages,
       { role: 'user', content: promptText }
     ];
@@ -43,7 +43,7 @@ class AIConnector {
       body: JSON.stringify({
         model: this.openRouterModel,
         messages,
-        max_tokens: 500
+        max_tokens: 250
       })
     });
 
@@ -75,7 +75,7 @@ class AIConnector {
     }));
 
     const messages = [
-      { role: 'system', content: 'Eres un analista de trading experto en Bitcoin. Respondes en español.' },
+      { role: 'system', content: 'You are an expert Bitcoin trading analyst. Be concise. Max 50 words per response.' },
       ...historialMessages,
       { role: 'user', content: promptText }
     ];
@@ -89,7 +89,7 @@ class AIConnector {
       body: JSON.stringify({
         model: this.deepSeekModel,
         messages,
-        max_tokens: 500
+        max_tokens: 250
       })
     });
 
