@@ -1924,10 +1924,12 @@ function renderPositionItem(p) {
     '<div class="position-prices">';
 
   if (isOpen) {
+    var leverageStr = p.leverage ? p.leverage + 'x' : '1x';
     html +=
       '<div class="price-item"><span class="price-label">' + t('entry') + '</span><span class="price-value">' + entryPriceFmt + '</span></div>' +
       '<div class="price-item"><span class="price-label">' + t('current') + '</span><span class="price-value">' + currentPriceFmt + '</span></div>' +
-      '<div class="price-item"><span class="price-label">' + t('target') + '</span><span class="price-value">' + targetPriceFmt + '</span></div>';
+      '<div class="price-item"><span class="price-label">' + t('target') + '</span><span class="price-value">' + targetPriceFmt + '</span></div>' +
+      (type === 'futures' ? '<div class="price-item"><span class="price-label">' + t('leverage') + '</span><span class="price-value">' + leverageStr + '</span></div>' : '');
     if (type === 'futures' && stopPriceFmt !== '—') {
       html += '<div class="price-item"><span class="price-label">' + t('stop') + '</span><span class="price-value stop">' + stopPriceFmt + '</span></div>';
     }
