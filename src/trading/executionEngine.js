@@ -18,6 +18,28 @@ async function executeOrder(botType, signal, options = {}, level = null) {
   const leveragedNotional = usdAmount * leverage;
   let orderQuantity = roundQuantity(botType, leveragedNotional / signal.currentPrice);
 
+  const entryZone = signal.entryZone || '';
+  const nums = String(entryZone).split('-').map(p => parseFloat(p.trim()) || 0);
+  const esLong = signal.strategyType === "long";
+  let entry = null;
+  if (nums.length === 2) {
+    const low = Math.min(nums[0], nums[1]);
+    const high = Math.max(nums[0], nums[1]);
+    entry = esLong ? high : low;
+  } else if (nums.length === 1) {
+    entry = nums[0];
+  }
+  const target = parseFloat(signal.target);
+  if (entry && target) {
+    const margenPct = esLong
+      ? ((target - entry) / entry) * 100
+      : ((entry - target) / entry) * 100;
+    if (margenPct < 3) {
+      logger.warn("execution", `Blocked execution: margin ${margenPct.toFixed(2)}% < 3% (${signal.strategyType})`);
+      throw new Error(`Margin too low: ${margenPct.toFixed(2)}% < 3% minimum`);
+    }
+  }
+
   const minNotional = botType === "futures" ? 50 : 5;
   const actualNotional = orderQuantity * signal.currentPrice;
   if (actualNotional < minNotional) {

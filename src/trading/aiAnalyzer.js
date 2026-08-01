@@ -2,7 +2,7 @@ const aiConnector = require('../ai/aiConnector');
 const logger = require('../logger/logger');
 
 const TRAFFIC_LIGHT_EN = { VERDE: 'GREEN', AMARILLO: 'YELLOW', ROJO: 'RED' };
-const HORIZONTE_VALORES = { minutos: 'minutos', horas: 'horas', dias: 'dias' };
+const HORIZONTE_VALORES = { minutos: 'minutos', horas: 'horas', dias: 'dias', minutes: 'minutos', hours: 'horas', days: 'dias' };
 
 function inferHorizonte(signal) {
   if (signal.signals?.type === 'range_long' || signal.signals?.type === 'range_short') return 'minutos';
@@ -97,28 +97,29 @@ ${datos}
 TRAFFIC LIGHT: ${TRAFFIC_LIGHT_EN[semaforo] || semaforo}
 
 INSTRUCTIONS:
+- ALWAYS respond in English. Never use Spanish.
 - RED light: explain WHY the trade is weak or risky. Max 50 characters.
 - YELLOW light: explain the caution needed and key positives/negatives. Max 50 characters.
 - GREEN light: explain why it is a good opportunity, include one warning. Max 50 characters.
 - Describe the current price zone in max 30 characters.
 - The verdict must be max 50 characters. Short and professional.
 
-Respond ONLY with valid JSON:
+Respond ONLY with valid JSON (field names in English):
 {
-  "veredicto": "Professional verdict (max 50 characters)",
-  "zona_actual": "Price zone (max 30 characters)",
-  "factores": ["factor1", "factor2"],
-  "riesgos": ["risk1", "risk2"],
-  "confianza": 8,
-  "horizonte": "horas"
+  "verdict": "Professional verdict (max 50 characters)",
+  "zone": "Price zone (max 30 characters)",
+  "factors": ["factor1", "factor2"],
+  "risks": ["risk1", "risk2"],
+  "confidence": 8,
+  "horizon": "hours"
 }
 
 Rules:
-- "veredicto" must be max 50 characters.
-- "zona_actual" must be max 30 characters.
-- "factores" and "riesgos": max 2 items each, max 35 characters per item.
-- "confianza" is a number from 0 to 10.
-- "horizonte" is "minutos", "horas" or "dias".
+- "verdict" must be max 50 characters.
+- "zone" must be max 30 characters.
+- "factors" and "risks": max 2 items each, max 35 characters per item.
+- "confidence" is a number from 0 to 10.
+- "horizon" is "minutes", "hours" or "days".
   `.trim();
 
     try {
@@ -127,15 +128,15 @@ Rules:
         const jsonMatch = response.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
-          const horizonte = HORIZONTE_VALORES[parsed.horizonte] || inferHorizonte(signal);
+          const horizonte = HORIZONTE_VALORES[parsed.horizon] || HORIZONTE_VALORES[parsed.horizonte] || inferHorizonte(signal);
           const trim = (str, max) => typeof str === 'string' ? (str.trim().length > max ? str.trim().slice(0, max - 1).trimEnd() + '…' : str.trim()) : '';
           const capItems = (arr, max, maxItem) => Array.isArray(arr) ? arr.slice(0, max).map(i => typeof i === 'string' ? (i.length > maxItem ? i.slice(0, maxItem - 1) + '…' : i) : String(i)) : [];
           return {
-            explanation: trim(parsed.veredicto || parsed.explicacion || '', 50),
-            zona_actual: trim(parsed.zona_actual || '', 30) || null,
-            factors: capItems(parsed.factores, 2, 35),
-            risks: capItems(parsed.riesgos, 2, 35),
-            confidence: typeof parsed.confianza === 'number' ? parsed.confianza : Math.min(10, Math.max(0, Math.round((signal.score || 5) * 0.8 + 1))),
+            explanation: trim(parsed.verdict || parsed.veredicto || parsed.explicacion || '', 50),
+            zona_actual: trim(parsed.zone || parsed.zona_actual || '', 30) || null,
+            factors: capItems(parsed.factors || parsed.factores, 2, 35),
+            risks: capItems(parsed.risks || parsed.riesgos, 2, 35),
+            confidence: typeof parsed.confidence === 'number' ? parsed.confidence : typeof parsed.confianza === 'number' ? parsed.confianza : Math.min(10, Math.max(0, Math.round((signal.score || 5) * 0.8 + 1))),
             horizonte
           };
         }

@@ -29,7 +29,7 @@ class AIConnector {
     }));
 
     const messages = [
-      { role: 'system', content: 'You are an expert Bitcoin trading analyst. Be concise. Max 50 words per response.' },
+      { role: 'system', content: 'You are an expert Bitcoin trading analyst. Always respond in English. Be concise. Max 50 words per response.' },
       ...historialMessages,
       { role: 'user', content: promptText }
     ];
@@ -75,7 +75,7 @@ class AIConnector {
     }));
 
     const messages = [
-      { role: 'system', content: 'You are an expert Bitcoin trading analyst. Be concise. Max 50 words per response.' },
+      { role: 'system', content: 'You are an expert Bitcoin trading analyst. Always respond in English. Be concise. Max 50 words per response.' },
       ...historialMessages,
       { role: 'user', content: promptText }
     ];

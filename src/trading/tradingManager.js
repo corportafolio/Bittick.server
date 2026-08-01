@@ -15,6 +15,29 @@ const strategies = {
 
 const ASSET = 'BTCUSDT';
 
+function parseEntryWorst(entryZone, esLong) {
+  if (!entryZone) return null;
+  const nums = String(entryZone).split('-').map(p => parseFloat(p.trim()) || 0);
+  if (nums.length === 2) {
+    const low = Math.min(nums[0], nums[1]);
+    const high = Math.max(nums[0], nums[1]);
+    return esLong ? high : low;
+  }
+  if (nums.length === 1) return nums[0];
+  return null;
+}
+
+function validarMargen(signal) {
+  const esLong = signal.strategyType === 'long';
+  const entry = parseEntryWorst(signal.entryZone, esLong);
+  const target = parseFloat(signal.target);
+  if (!entry || !target) return false;
+  const margenPct = esLong
+    ? ((target - entry) / entry) * 100
+    : ((entry - target) / entry) * 100;
+  return margenPct >= 3;
+}
+
 async function scanMarket() {
   const results = [];
   try {
@@ -35,6 +58,15 @@ async function scanMarket() {
       try {
 const signal = strategy.evaluate(klines, currentPrice);
       if (signal) {
+        if (!validarMargen(signal)) {
+          const esLong = signal.strategyType === 'long';
+          const entry = parseEntryWorst(signal.entryZone, esLong);
+          const margen = esLong
+            ? (((parseFloat(signal.target) - entry) / entry) * 100).toFixed(2)
+            : (((entry - parseFloat(signal.target)) / entry) * 100).toFixed(2);
+          logger.info('trading', `Signal discarded by ${config.name}: margin ${margen}% < 3% (${signal.strategyType})`);
+          continue;
+        }
         logger.info('trading', `Signal detected by ${config.name}: ${signal.strategyType} at $${signal.currentPrice} (score: ${signal.score})`);
         const analysis = await aiAnalyzer.analyze(signal);
         const base = { ...signal, confidence: analysis.confidence, explanation: analysis.explanation, zona_actual: analysis.zona_actual, factors: analysis.factors, risks: analysis.risks, horizonte: analysis.horizonte };

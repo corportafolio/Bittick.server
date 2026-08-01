@@ -28,6 +28,66 @@ function t(key) {
   return strings[key] !== undefined ? strings[key] : key;
 }
 
+var ANALISIS_ES_EN = {
+  'Alta probabilidad de continuacion bajista': 'High probability of bearish continuation',
+  'Alta probabilidad de continuación bajista': 'High probability of bearish continuation',
+  'Alta probabilidad de continuacion alcista': 'High probability of bullish continuation',
+  'Alta probabilidad de continuación alcista': 'High probability of bullish continuation',
+  'Trade válido pero zona gris; esperar confirmación.': 'Valid trade but gray zone; wait for confirmation.',
+  'Trade valido pero zona gris; esperar confirmacion.': 'Valid trade but gray zone; wait for confirmation.',
+  'EVITAR: Resistencia inmediata y soporte débil.': 'AVOID: Immediate resistance and weak support.',
+  'EVITAR: Resistencia inmediata y soporte debil.': 'AVOID: Immediate resistance and weak support.',
+  'Señal débil': 'Weak signal',
+  'Señal debil': 'Weak signal',
+  'Señal moderada': 'Moderate signal',
+  'Señal fuerte': 'Strong signal',
+  'Zona de soporte': 'Support zone',
+  'Zona de resistencia': 'Resistance zone',
+  'Soporte débil': 'Weak support',
+  'Soporte debil': 'Weak support',
+  'Resistencia inmediata': 'Immediate resistance',
+  'Alta probabilidad': 'High probability',
+  'continuacion bajista': 'bearish continuation',
+  'continuación bajista': 'bearish continuation',
+  'continuacion alcista': 'bullish continuation',
+  'continuación alcista': 'bullish continuation',
+  'esperar confirmación': 'wait for confirmation',
+  'esperar confirmacion': 'wait for confirmation',
+  'zona gris': 'gray zone',
+  'volumen bajo': 'low volume',
+  'volumen alto': 'high volume',
+  'tendencia alcista': 'uptrend',
+  'tendencia bajista': 'downtrend',
+  'oportunidad': 'opportunity',
+  'entrada': 'entry',
+  'salida': 'exit',
+  'precio actual': 'current price',
+  'soporte': 'support',
+  'resistencia': 'resistance',
+  'débil': 'weak',
+  'debil': 'weak',
+  'fuerte': 'strong',
+  'confirmado': 'confirmed',
+  'válido': 'valid',
+  'valido': 'valid',
+  'alerta': 'alert',
+  'toma de beneficios': 'take profit',
+  'stop loss': 'stop loss'
+};
+
+function traducirAnalisis(texto) {
+  if (currentLang === 'en' && typeof texto === 'string' && texto) {
+    var resultado = texto;
+    for (var frase in ANALISIS_ES_EN) {
+      if (resultado.indexOf(frase) >= 0) {
+        resultado = resultado.split(frase).join(ANALISIS_ES_EN[frase]);
+      }
+    }
+    return resultado;
+  }
+  return texto;
+}
+
 function loadStrings(lang, cb) {
   lang = lang || 'en';
   fetch('/i18n/' + lang + '.json')
@@ -1515,15 +1575,15 @@ function renderOpportunities() {
     if (val(opp.zone_mid)) detailParts.push(t('mid_zone') + ' ' + opp.zone_mid);
     if (val(opp.through_back)) detailParts.push(t('breakout') + ' ' + (opp.through_back === 1 ? t('confirmed') : t('not_confirmed')));
     if (val(opp.volume_ratio)) detailParts.push(t('volume') + ' x' + opp.volume_ratio);
-    if (val(opp.zona_actual)) detailParts.push(opp.zona_actual);
-    if (opp.ai_explanation) detailParts.push(opp.ai_explanation);
+    if (val(opp.zona_actual)) detailParts.push(traducirAnalisis(opp.zona_actual));
+    if (opp.ai_explanation) detailParts.push(traducirAnalisis(opp.ai_explanation));
     try {
       var parsedFactors = typeof opp.factors === 'string' ? JSON.parse(opp.factors) : opp.factors;
-      if (parsedFactors && parsedFactors.length) detailParts.push(t('factors') + ': ' + parsedFactors.join(', '));
+      if (parsedFactors && parsedFactors.length) detailParts.push(t('factors') + ': ' + parsedFactors.map(traducirAnalisis).join(', '));
     } catch (_) {}
     try {
       var parsedRisks = typeof opp.risks === 'string' ? JSON.parse(opp.risks) : opp.risks;
-      if (parsedRisks && parsedRisks.length) detailParts.push(t('risks') + ': ' + parsedRisks.join(', '));
+      if (parsedRisks && parsedRisks.length) detailParts.push(t('risks') + ': ' + parsedRisks.map(traducirAnalisis).join(', '));
     } catch (_) {}
     detailParts.push(t('traffic_light') + ': ' + t('light_' + semaforo.toLowerCase()) + (semaforo === 'ROJO' ? ' — ' + t('caution') : semaforo === 'AMARILLO' ? ' — ' + t('have_caution') : ' — ' + t('good_opportunity')));
 
@@ -1534,7 +1594,7 @@ function renderOpportunities() {
       return str.length > max ? str.slice(0, max - 1).trimEnd() + '…' : str;
     }
 
-    var collapsedText = truncateText(opp.ai_explanation || '', 50) || firstLineText || detailText;
+    var collapsedText = truncateText(traducirAnalisis(opp.ai_explanation || ''), 50) || firstLineText || detailText;
 
     var analysisHTML = '';
     if (collapsedText) {

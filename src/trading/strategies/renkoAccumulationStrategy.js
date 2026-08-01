@@ -231,6 +231,9 @@ function evaluate(klines, currentPrice) {
     ? Math.round((currentZone.startPrice - atr * 1.5) * 100) / 100
     : Math.round((currentZone.endPrice + atr * 1.5) * 100) / 100;
 
+  const entryZoneLow = Math.min(entryLow, entryHigh);
+  const entryZoneHigh = Math.max(entryLow, entryHigh);
+
   // Calculate EMA50 for the indicator data
   const closes = klines.map(k => k.close);
   const ema50 = calculateEMA(closes, 50);
@@ -253,7 +256,7 @@ function evaluate(klines, currentPrice) {
     strategyType,
     asset: 'BTCUSDT',
     currentPrice,
-    entryZone: `${entryLow} - ${entryHigh}`,
+    entryZone: `${entryZoneLow} - ${entryZoneHigh}`,
     target,
     stopLoss: sl,
     score: normalizedScore,

@@ -270,6 +270,30 @@ function insertOpportunity(op) {
 
 const OPP_COLS = 'id, asset, strategy_type, price, entry_zone, target, stop_loss, score, confidence, ai_explanation, factors, risks, signals, horizonte, status, created_at, bot_type, rsi, open_interest, ema_50, sma_20, support_zone, resistance_zone, atr, volume_ratio, zone_type, zone_mid, zone_strength, zone_start, zone_end, rise_percent, sma_50, sma_ema, drop_pct, rise_pct, distance_pct, volume_spike, fib_levels, distance_from_sma, magnet_zone_mid, magnet_zone_strength, back_price, through_back, fast_move, volume_high, volume_surge, drop_percent, zona_actual';
 
+function isValidOpportunity(obj) {
+  try {
+    const entryZone = obj.entry_zone || '';
+    const esLong = String(obj.strategy_type || '').indexOf('long') >= 0 || String(obj.strategy_type || '').indexOf('buy') >= 0;
+    const nums = String(entryZone).split('-').map(function(p) { return parseFloat(p.trim()) || 0; });
+    let entry = null;
+    if (nums.length === 2) {
+      const low = Math.min(nums[0], nums[1]);
+      const high = Math.max(nums[0], nums[1]);
+      entry = esLong ? high : low;
+    } else if (nums.length === 1) {
+      entry = nums[0];
+    }
+    const target = parseFloat(obj.target);
+    if (!entry || !target) return false;
+    const margenPct = esLong
+      ? ((target - entry) / entry) * 100
+      : ((entry - target) / entry) * 100;
+    return margenPct >= 3;
+  } catch (e) {
+    return false;
+  }
+}
+
 function getOpportunities(limit = 50, offset = 0, since = null, botType = null) {
   let sql = "SELECT " + OPP_COLS + " FROM opportunities WHERE score >= 5 AND confidence >= 5";
   const conditions = [];
@@ -298,7 +322,7 @@ function getOpportunities(limit = 50, offset = 0, since = null, botType = null) 
     if (obj.score !== undefined) obj.score = Math.round(Math.min(10, Math.max(0, obj.score)));
     if (obj.confidence !== undefined) obj.confidence = Math.round(Math.min(10, Math.max(0, obj.confidence)));
     return obj;
-  });
+  }).filter(isValidOpportunity);
 }
 
 function getOpportunitiesFreeTier(limit = 50, offset = 0) {
@@ -314,7 +338,7 @@ function getOpportunitiesFreeTier(limit = 50, offset = 0) {
     if (obj.score !== undefined) obj.score = Math.round(Math.min(10, Math.max(0, obj.score)));
     if (obj.confidence !== undefined) obj.confidence = Math.round(Math.min(10, Math.max(0, obj.confidence)));
     return obj;
-  });
+  }).filter(isValidOpportunity);
 }
 
 function getOpportunityById(id) {
@@ -339,6 +363,23 @@ function getStrategyConfigs() {
 function deleteOldOpportunities(daysOld = 10) {
   db.run("DELETE FROM opportunities WHERE created_at < datetime('now', ?)", [`-${daysOld} days`]);
   save();
+}
+
+function deleteInvalidOpportunities() {
+  const results = db.exec("SELECT id, strategy_type, entry_zone, target FROM opportunities");
+  if (!results.length || !results[0].values.length) return 0;
+  const cols = results[0].columns;
+  let deleted = 0;
+  results[0].values.forEach(function(row) {
+    const obj = {};
+    cols.forEach(function(c, i) { obj[c] = row[i]; });
+    if (!isValidOpportunity(obj)) {
+      db.run("DELETE FROM opportunities WHERE id = ?", [obj.id]);
+      deleted++;
+    }
+  });
+  if (deleted > 0) save();
+  return deleted;
 }
 
 function deleteOpportunity(id) {
@@ -616,7 +657,7 @@ async function close() { if (db) db.close(); }
 
 module.exports = {
   init, insertOpportunity, getOpportunities, getOpportunitiesFreeTier, getOpportunityById,
-  getStrategyConfigs, deleteOldOpportunities, deleteOpportunity, cleanupOldPositions,
+  getStrategyConfigs, deleteOldOpportunities, deleteInvalidOpportunities, deleteOpportunity, cleanupOldPositions,
   insertPosition, getPositions, getPositionById, updatePositionPrice, closePosition, cancelPosition,
   getBotConfigs, getBotConfig, updateBotConfig, getBotStats, close,
   getPositionsByInscription,
