@@ -1,10 +1,10 @@
-/* BITTICK WEB - SERVICE WORKER v3.2.0
+/* BITTICK WEB - SERVICE WORKER v3.3.0
    Network-first for HTML/CSS/JS (always fresh)
    Cache-first for images (bots/)
    Auto-updates on every page load
    Forces reload when new SW detected
 */
-var CACHE_NAME = 'bittick-static-v6';
+var CACHE_NAME = 'bittick-static-v7';
 
 self.addEventListener('install', function(e){
   self.skipWaiting();
@@ -39,7 +39,7 @@ self.addEventListener('fetch', function(e){
 
   if(url.pathname.indexOf('/api/') === 0){
     e.respondWith(
-      fetch(e.request).catch(function(){
+      fetch(e.request, { cache: 'no-store' }).catch(function(){
         return new Response(JSON.stringify({ exito: false, error: 'Sin conexion' }), {
           headers: { 'Content-Type': 'application/json' }
         });
@@ -64,7 +64,7 @@ self.addEventListener('fetch', function(e){
   }
 
   e.respondWith(
-    fetch(e.request).then(function(networkResp){
+    fetch(e.request, { cache: 'no-store' }).then(function(networkResp){
       if(e.request.method === 'GET' && networkResp.status === 200){
         var clone = networkResp.clone();
         caches.open(CACHE_NAME).then(function(cache){

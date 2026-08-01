@@ -27,7 +27,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: 0,
+  setHeaders: function(res) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  }
+}));
 
 app.use('/api/trading', tradingRouter);
 app.use('/api/chart', chartRouter);
