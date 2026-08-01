@@ -2193,6 +2193,7 @@ function renderLevelsTable(levels, mode) {
   levels = rows;
   var html = '<table style="width:100%;font-size:.78rem;border-collapse:collapse">';
   html += '<tr style="color:var(--text-muted);text-align:center;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px">';
+  html += '<th style="text-align:left">' + t('id') + '</th>';
   html += '<th style="text-align:left">' + t('lvl') + '</th>';
   html += '<th>' + t('score') + '</th>';
   html += '<th>' + t('conf') + '</th>';
@@ -2203,7 +2204,10 @@ function renderLevelsTable(levels, mode) {
   levels.forEach(function(l) {
     var hasValues = (l.min_score > 0 || l.min_confidence > 0 || l.position_size_usdt > 0);
     var lvlPrefix = mode === 'spot' ? 'S' : 'F';
+    var idNum = 11 - l.level;
+    var idPrefix = mode === 'spot' ? 'S' : 'F';
     html += '<tr style="border-top:1px solid var(--border)">';
+    html += '<td style="text-align:left;font-weight:600;color:' + (hasValues ? 'var(--text-primary)' : 'var(--text-muted)') + '">' + idPrefix + idNum + '</td>';
     html += '<td style="text-align:left;font-weight:600;color:' + (hasValues ? 'var(--text-primary)' : 'var(--text-muted)') + '">' + lvlPrefix + l.level + '</td>';
     html += '<td><input class="level-input" type="number" min="1" max="10" step="1" value="' + (l.min_score || '') + '" placeholder="—" data-mode="' + mode + '" data-level="' + l.level + '" data-field="min_score"></td>';
     html += '<td><input class="level-input" type="number" min="1" max="10" step="1" value="' + (l.min_confidence || '') + '" placeholder="—" data-mode="' + mode + '" data-level="' + l.level + '" data-field="min_confidence"></td>';
