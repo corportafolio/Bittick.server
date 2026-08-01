@@ -288,7 +288,7 @@ function isValidOpportunity(obj) {
     const margenPct = esLong
       ? ((target - entry) / entry) * 100
       : ((entry - target) / entry) * 100;
-    return margenPct >= 3;
+    return margenPct >= 1.2;
   } catch (e) {
     return false;
   }
@@ -322,7 +322,7 @@ function getOpportunities(limit = 50, offset = 0, since = null, botType = null) 
     if (obj.score !== undefined) obj.score = Math.round(Math.min(10, Math.max(0, obj.score)));
     if (obj.confidence !== undefined) obj.confidence = Math.round(Math.min(10, Math.max(0, obj.confidence)));
     return obj;
-  }).filter(isValidOpportunity);
+  });
 }
 
 function getOpportunitiesFreeTier(limit = 50, offset = 0) {
@@ -338,7 +338,7 @@ function getOpportunitiesFreeTier(limit = 50, offset = 0) {
     if (obj.score !== undefined) obj.score = Math.round(Math.min(10, Math.max(0, obj.score)));
     if (obj.confidence !== undefined) obj.confidence = Math.round(Math.min(10, Math.max(0, obj.confidence)));
     return obj;
-  }).filter(isValidOpportunity);
+  });
 }
 
 function getOpportunityById(id) {

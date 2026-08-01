@@ -35,7 +35,7 @@ function validarMargen(signal) {
   const margenPct = esLong
     ? ((target - entry) / entry) * 100
     : ((entry - target) / entry) * 100;
-  return margenPct >= 3;
+  return margenPct >= 1.2;
 }
 
 async function scanMarket() {
@@ -58,15 +58,6 @@ async function scanMarket() {
       try {
 const signal = strategy.evaluate(klines, currentPrice);
       if (signal) {
-        if (!validarMargen(signal)) {
-          const esLong = signal.strategyType === 'long';
-          const entry = parseEntryWorst(signal.entryZone, esLong);
-          const margen = esLong
-            ? (((parseFloat(signal.target) - entry) / entry) * 100).toFixed(2)
-            : (((entry - parseFloat(signal.target)) / entry) * 100).toFixed(2);
-          logger.info('trading', `Signal discarded by ${config.name}: margin ${margen}% < 3% (${signal.strategyType})`);
-          continue;
-        }
         logger.info('trading', `Signal detected by ${config.name}: ${signal.strategyType} at $${signal.currentPrice} (score: ${signal.score})`);
         const analysis = await aiAnalyzer.analyze(signal);
         const base = { ...signal, confidence: analysis.confidence, explanation: analysis.explanation, zona_actual: analysis.zona_actual, factors: analysis.factors, risks: analysis.risks, horizonte: analysis.horizonte };
@@ -116,10 +107,10 @@ if (signal.strategyType === 'long') {
       }
     }
 
-    const activeInscriptions = pool.getActiveInscriptions();
+const activeInscriptions = pool.getActiveInscriptions();
     if (activeInscriptions.length > 0) {
       for (const op of signals) {
-        if (op.confidence < 5) continue;
+        if (op.confidence < 3) continue;
         for (const insc of activeInscriptions) {
           try {
             const executions = await botManager.evaluateAndExecute(op, {

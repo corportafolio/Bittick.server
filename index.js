@@ -10,6 +10,7 @@ const logger = require('./src/logger/logger');
 const tradingRouter = require('./src/trading/tradingRouter');
 const tradingScheduler = require('./src/trading/tradingScheduler');
 const tradingStore = require('./src/trading/tradingStore');
+const poolStore = require('./src/engine/poolStore');
 const chartRouter = require('./src/chart/chartRouter');
 const authRouter = require('./src/auth/authRouter');
 
@@ -50,7 +51,9 @@ app.listen(PORT, '0.0.0.0', () => {
   setTimeout(async () => {
     try {
       const tradingStore = require('./src/trading/tradingStore');
+      const poolStore = require('./src/engine/poolStore');
       await tradingStore.init();
+      await poolStore.init();
       tradingScheduler.start();
       logger.info('trading', 'Trading system initialized and scheduler started.');
     } catch (err) {

@@ -452,11 +452,47 @@ function restoreSession() {
     });
     // Update header and menu bot image
     updateHeaderBotImage();
+    
+    // Auto-select inscription if only one exists and none selected
+    var auth = store.state.auth;
+    if (!auth.selectedInscription && auth.inscriptions && auth.inscriptions.length === 1) {
+      selectInscription(auth.inscriptions[0].inscriptionId);
+    }
+    
+    // If no selectedInscription but user is verified and has inscriptions, fetch from server
+    if (!auth.selectedInscription && auth.verified && auth.inscriptions && auth.inscriptions.length > 0) {
+      fetchSelectedInscriptionFromServer(auth.address);
+    }
     return true;
   } catch(e) {
     localStorage.removeItem(SESSION_KEY);
     return false;
   }
+}
+
+function fetchSelectedInscriptionFromServer(address) {
+  return api.get('/api/auth/selected-inscription', true)
+    .then(function(json) {
+      if (json.exito && json.data) {
+        var sel = json.data;
+        store.dispatch('SET_AUTH', {
+          selectedInscription: sel.inscriptionId,
+          botNum: sel.botNum,
+          tier: sel.tier,
+          botImageUrl: sel.botImageUrl,
+          botName: 'Bot #' + sel.botNum
+        });
+        saveSession();
+        updateHeaderBotImage();
+        // Trigger chart reload if on dashboard
+        if (window.location.hash === '#/dashboard' || window.location.hash === '') {
+          loadChart();
+        }
+      }
+    })
+    .catch(function(e) {
+      console.warn('Failed to fetch selected inscription from server:', e);
+    });
 }
 
 function disconnect() {
@@ -1120,7 +1156,11 @@ function loadChart() {
   var container = els['chart-container'];
   if (!container) return;
 
-  if (!isPremium()) {
+  var auth = store.state.auth;
+  var hasAnyInscription = auth.verified && auth.inscriptions && auth.inscriptions.length > 0;
+
+  // Si NO tiene ningún bot/inscripción conectado -> mostrar aviso
+  if (!hasAnyInscription) {
     container.innerHTML =
       '<div class="chart-placeholder">' +
         '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
@@ -1129,6 +1169,42 @@ function loadChart() {
     els['chart-info'].innerHTML = '';
     return;
   }
+
+  // Si tiene cualquier bot -> intentar restaurar selectedInscription desde servidor (si falta)
+  if (!auth.selectedInscription) {
+    api.get('/api/auth/selected-inscription', true)
+      .then(function(json) {
+        if (json.exito && json.data) {
+          var sel = json.data;
+          store.dispatch('SET_AUTH', {
+            selectedInscription: sel.inscriptionId,
+            botNum: sel.botNum,
+            tier: sel.tier,
+            botImageUrl: sel.botImageUrl,
+            botName: 'Bot #' + sel.botNum
+          });
+          saveSession();
+          updateHeaderBotImage();
+        }
+        // Cargar chart de todas formas (con o sin selección)
+        doLoadChart();
+      })
+      .catch(function(e) {
+        console.warn('Failed to fetch selected inscription from server in loadChart:', e);
+        doLoadChart();
+      });
+    return;
+  }
+
+  doLoadChart();
+}
+
+function doLoadChart() {
+  var container = els['chart-container'];
+  if (!container) return;
+
+  // Limpiar placeholder/aviso antes de renderizar chart
+  container.innerHTML = '';
 
   var interval = store.state.trading.klinesInterval;
   api.get('/api/chart/klines?interval=' + interval + '&limit=500', false)
@@ -1175,6 +1251,8 @@ function loadTradingZones() {
 }
 
 function renderChart(data) {
+  var container = els['chart-container'];
+  if (container) container.innerHTML = '';
   if (typeof BittickChart !== 'undefined') {
     BittickChart.render(els['chart-container'], data, {
       upColor: '#4CAF50', downColor: '#F44336',
@@ -1505,22 +1583,37 @@ function renderOpportunities() {
     var stopLoss = parseFloat(opp.stop_loss || 0);
     var score = parseFloat(opp.score || 0);
     var confidence = parseFloat(opp.confidence || 0);
-    var isUp = strategyType.indexOf('long') >= 0 || strategyType.indexOf('buy') >= 0;
+    var isUp = true;
     var strategyColor = isUp ? 'var(--positive)' : 'var(--negative)';
 
     var entryPrice = 0;
+    var margenPct = null;
     if (entryZone) {
       var nums = entryZone.split('-').map(function(p) { return parseFloat(p.trim()) || 0; });
       if (nums.length === 2) entryPrice = (nums[0] + nums[1]) / 2;
       else if (nums.length === 1) entryPrice = nums[0];
+
+      // Dirección REAL: entry < target = LONG, entry > target = SHORT
+      isUp = entryPrice < target;
+
+      // Calcular margen con peor caso según dirección REAL
+      var low = Math.min(nums[0], nums[1]);
+      var high = Math.max(nums[0], nums[1]);
+      var worstEntry = isUp ? high : low;
+      if (target > 0 && worstEntry > 0) {
+        margenPct = isUp
+          ? ((target - worstEntry) / worstEntry) * 100
+          : ((worstEntry - target) / worstEntry) * 100;
+      }
     }
 
     var etiqueta = 'LONG';
     if (botType === 'spot') {
       etiqueta = 'SPOT';
-    } else if (strategyType.indexOf('short') >= 0) {
+    } else if (!isUp) {
       etiqueta = 'SHORT';
     }
+    var strategyColor = isUp ? 'var(--positive)' : 'var(--negative)';
 
     var nivel = Math.min(score, confidence);
     var dotColor = '#e74c3c';
@@ -1609,6 +1702,7 @@ function renderOpportunities() {
       '<div class="opp-card-header">' +
         '<span class="opp-card-label" style="' + strategyColor + '">' + etiqueta + '</span>' +
         '<span class="opp-card-symbol">' + asset + '</span>' +
+        (margenPct !== null && margenPct < 1.2 ? '<span class="opp-card-badge" style="color:#e74c3c;font-size:10px;margin-left:6px;">descartada margen -1.2%</span>' : '') +
         '<span class="opp-card-dot" style="background:' + dotColor + '"></span>' +
       '</div>' +
       '<div class="opp-card-changes">' +
@@ -2470,6 +2564,8 @@ function init() {
 
   loadStrings(currentLang, function() {
     restoreSession();
+    // Auto-save session on page unload to persist selectedInscription
+    window.addEventListener('beforeunload', saveSession);
     onHashChange();
   });
 

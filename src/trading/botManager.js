@@ -40,12 +40,30 @@ async function evaluateAndExecute(signal, context = {}) {
 
     if (botType === "spot" && signal.strategyType !== "long") continue;
 
-    const allLevels = pool.getBotStrategiesByLevel(context.inscriptionId, botType);
-    const matchedLevel = allLevels.find(function(l) {
-      return l.enabled && score === l.min_score && confidence === l.min_confidence;
-    });
+    let allLevels = pool.getBotStrategiesByLevel(context.inscriptionId, botType);
+    if (!allLevels || allLevels.length === 0) {
+      // Fallback: niveles por defecto desde bot_config global
+      const isSpot = botType === "spot";
+      allLevels = [
+        { level: 10, enabled: 1, position_size_usdt: 10, min_score: 10, min_confidence: 10, leverage: 10 },
+        { level: 9,  enabled: 1, position_size_usdt: 20, min_score: 9,  min_confidence: 9,  leverage: 10 },
+        { level: 8,  enabled: 1, position_size_usdt: 40, min_score: 8,  min_confidence: 8,  leverage: 10 },
+        { level: 7,  enabled: 1, position_size_usdt: 20, min_score: 7,  min_confidence: 7,  leverage: 5  },
+        { level: 6,  enabled: 1, position_size_usdt: 10, min_score: isSpot ? 7 : 8, min_confidence: 6, leverage: 3 },
+        { level: 5,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+        { level: 4,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+        { level: 3,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+        { level: 2,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 },
+        { level: 1,  enabled: 1, position_size_usdt: 0,  min_score: 0,  min_confidence: 0,  leverage: 1 }
+      ];
+    }
+    // Match: score >= min_score AND confidence >= min_confidence, take highest level
+    const matchedLevel = allLevels
+      .filter(l => l.enabled && score >= l.min_score && confidence >= l.min_confidence)
+      .sort((a, b) => b.level - a.level)[0];
 
     if (!matchedLevel) {
+      logger.info("bot-manager", `${botType} bot: no level matched for score ${score}/conf ${confidence} (inscription ${context.inscriptionId})`);
       continue;
     }
 
@@ -81,6 +99,28 @@ async function evaluateAndExecute(signal, context = {}) {
     }
 
     try {
+      const entryZone = signal.entryZone || '';
+      const nums = String(entryZone).split('-').map(p => parseFloat(p.trim()) || 0);
+      const esLong = signal.strategyType === "long";
+      let entry = null;
+      if (nums.length === 2) {
+        const low = Math.min(nums[0], nums[1]);
+        const high = Math.max(nums[0], nums[1]);
+        entry = esLong ? high : low;
+      } else if (nums.length === 1) {
+        entry = nums[0];
+      }
+      const target = parseFloat(signal.target);
+      if (entry && target) {
+        const margenPct = esLong
+          ? ((target - entry) / entry) * 100
+          : ((entry - target) / entry) * 100;
+        if (margenPct < 1.2) {
+          logger.info("bot-manager", `${botType} bot skipped opportunity ${signal.id}: margin ${margenPct.toFixed(2)}% < 1.2% (${signal.strategyType})`);
+          continue;
+        }
+      }
+
       const position = await executor.executeOrder(botType, signal, { usdAmount, leverage }, nivel);
       position.confidence = signal.confidence;
       position.factors = signal.factors;

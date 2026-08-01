@@ -34,9 +34,9 @@ async function executeOrder(botType, signal, options = {}, level = null) {
     const margenPct = esLong
       ? ((target - entry) / entry) * 100
       : ((entry - target) / entry) * 100;
-    if (margenPct < 3) {
-      logger.warn("execution", `Blocked execution: margin ${margenPct.toFixed(2)}% < 3% (${signal.strategyType})`);
-      throw new Error(`Margin too low: ${margenPct.toFixed(2)}% < 3% minimum`);
+    if (margenPct < 1.2) {
+      logger.warn("execution", `Blocked execution: margin ${margenPct.toFixed(2)}% < 1.2% (${signal.strategyType})`);
+      throw new Error(`Margin too low: ${margenPct.toFixed(2)}% < 1.2% minimum`);
     }
   }
 

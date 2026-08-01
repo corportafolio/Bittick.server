@@ -312,4 +312,30 @@ router.get('/verify-status', async (req, res) => {
   });
 });
 
+router.get('/selected-inscription', async (req, res) => {
+  try {
+    const address = req.headers['x-wallet-address'];
+    if (!address) {
+      return res.status(400).json({ exito: false, error: 'x-wallet-address header required' });
+    }
+    const poolStore = require('../engine/poolStore');
+    const selected = poolStore.getSelectedInscription(address);
+    if (!selected) {
+      return res.json({ exito: true, data: null });
+    }
+    res.json({
+      exito: true,
+      data: {
+        inscriptionId: selected.inscription_id,
+        botNum: selected.bot_num,
+        tier: selected.tier,
+        botImageUrl: '/api/auth/bot-image/' + selected.bot_num.toString().padStart(2, '0')
+      }
+    });
+  } catch (e) {
+    logger.error('auth', 'Get selected inscription error: ' + e.message);
+    res.status(500).json({ exito: false, error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
