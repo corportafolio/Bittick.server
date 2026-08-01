@@ -35,7 +35,7 @@ function validarMargen(signal) {
   const margenPct = esLong
     ? ((target - entry) / entry) * 100
     : ((entry - target) / entry) * 100;
-  return margenPct >= 1.2;
+  return margenPct >= 0.8;
 }
 
 async function scanMarket() {

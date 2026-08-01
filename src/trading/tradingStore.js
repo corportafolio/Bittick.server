@@ -288,7 +288,7 @@ function isValidOpportunity(obj) {
     const margenPct = esLong
       ? ((target - entry) / entry) * 100
       : ((entry - target) / entry) * 100;
-    return margenPct >= 1.2;
+    return margenPct >= 0.8;
   } catch (e) {
     return false;
   }

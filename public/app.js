@@ -1702,7 +1702,7 @@ function renderOpportunities() {
       '<div class="opp-card-header">' +
         '<span class="opp-card-label" style="' + strategyColor + '">' + etiqueta + '</span>' +
         '<span class="opp-card-symbol">' + asset + '</span>' +
-        (margenPct !== null && margenPct < 1.2 ? '<span class="opp-card-badge" style="color:#e74c3c;font-size:10px;margin-left:6px;">descartada margen -1.2%</span>' : '') +
+        (margenPct !== null && margenPct < 0.8 ? '<span class="opp-card-badge" style="color:#e74c3c;font-size:10px;margin-left:6px;">descartada margen -0.8%</span>' : '') +
         '<span class="opp-card-dot" style="background:' + dotColor + '"></span>' +
       '</div>' +
       '<div class="opp-card-changes">' +

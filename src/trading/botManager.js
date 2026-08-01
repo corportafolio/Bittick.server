@@ -115,8 +115,8 @@ async function evaluateAndExecute(signal, context = {}) {
         const margenPct = esLong
           ? ((target - entry) / entry) * 100
           : ((entry - target) / entry) * 100;
-        if (margenPct < 1.2) {
-          logger.info("bot-manager", `${botType} bot skipped opportunity ${signal.id}: margin ${margenPct.toFixed(2)}% < 1.2% (${signal.strategyType})`);
+        if (margenPct < 0.8) {
+          logger.info("bot-manager", `${botType} bot skipped opportunity ${signal.id}: margin ${margenPct.toFixed(2)}% < 0.8% (${signal.strategyType})`);
           continue;
         }
       }
