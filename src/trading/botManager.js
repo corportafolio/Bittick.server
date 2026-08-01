@@ -170,6 +170,48 @@ async function cancelPositionById(id) {
   return { ...position, status: "cancelled", current_price: current, pnl: pnl.pnl, pnl_percent: pnl.pnlPercent };
 }
 
+async function closePositionById(id) {
+  const position = store.getPositionById(id);
+  if (!position) throw new Error(`Position #${id} not found`);
+  if (position.status !== "open") throw new Error(`Position #${id} is already ${position.status}`);
+
+  const ticker = await binance.getTickerPrice(position.asset, position.bot_type);
+  const entry = position.entry_price;
+  const current = ticker.price;
+  const pnlAmount = position.strategy_type === "long"
+    ? (current - entry) * position.quantity
+    : (entry - current) * position.quantity;
+  const pnlPercent = ((pnlAmount / (entry * position.quantity)) * 100);
+
+  const pnl = { pnl: parseFloat(pnlAmount.toFixed(2)), pnlPercent: parseFloat(pnlPercent.toFixed(2)) };
+  store.closePosition(id, current, pnl, "manual");
+
+  logger.info("bot-manager", `Position #${id} closed. PnL: $${pnl.pnl} (${pnl.pnlPercent}%)`);
+
+  return { ...position, status: "closed", current_price: current, pnl: pnl.pnl, pnl_percent: pnl.pnlPercent };
+}
+
+async function closeAllOpenPositions(address = null, inscriptionId = null) {
+  const closed = [];
+  let positions;
+  if (inscriptionId) {
+    positions = store.getPositionsByInscription(inscriptionId, "open");
+  } else if (address) {
+    positions = store.getPositions(null, "open", address);
+  } else {
+    positions = store.getPositions(null, "open");
+  }
+  for (const pos of positions) {
+    try {
+      const result = await closePositionById(pos.id);
+      closed.push(result);
+    } catch (e) {
+      logger.warn("bot-manager", `Failed to close position #${pos.id}: ${e.message}`);
+    }
+  }
+  return closed;
+}
+
 async function monitorPositions() {
   const allOpenPositions = store.getPositions(null, "open");
   if (allOpenPositions.length > 0) {
@@ -315,4 +357,4 @@ async function getBotBalance(type, address = null, inscriptionId = null) {
   }
 }
 
-module.exports = { evaluateAndExecute, cancelPositionById, monitorPositions, getBotStatus, getBotBalance };
+module.exports = { evaluateAndExecute, cancelPositionById, closePositionById, closeAllOpenPositions, monitorPositions, getBotStatus, getBotBalance };

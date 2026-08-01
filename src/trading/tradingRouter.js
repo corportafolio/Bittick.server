@@ -123,6 +123,41 @@ router.post('/positions/:id/cancel', async (req, res) => {
   }
 });
 
+router.post('/positions/:id/close', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const result = await botManager.closePositionById(id);
+    res.json({ exito: true, message: 'Position closed', data: result });
+  } catch (error) {
+    logger.error('trading-api', `Close position error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.post('/positions/close', async (req, res) => {
+  try {
+    const address = req.headers['x-wallet-address'];
+    const inscriptionId = req.body.inscriptionId || null;
+    const closed = await botManager.closeAllOpenPositions(address, inscriptionId);
+    res.json({ exito: true, message: 'All open positions closed', data: { closed } });
+  } catch (error) {
+    logger.error('trading-api', `Close all positions error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
+router.post('/positions/dismiss', async (req, res) => {
+  try {
+    const { positionId } = req.body;
+    if (!positionId) return res.status(400).json({ exito: false, error: 'positionId required' });
+    store.cancelPosition(parseInt(positionId));
+    res.json({ exito: true, message: 'Position dismissed' });
+  } catch (error) {
+    logger.error('trading-api', `Dismiss position error: ${error.message}`);
+    res.status(500).json({ exito: false, error: error.message });
+  }
+});
+
 router.get('/bot/status', async (req, res) => {
   try {
     const address = req.headers['x-wallet-address'];
