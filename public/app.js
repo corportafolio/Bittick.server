@@ -1818,13 +1818,12 @@ async function closePosition(posId, type) {
   var confirmed = window.confirm(t('confirm_close_position'));
   if (!confirmed) return;
   try {
-    var res = await api.post('/api/trading/positions/close', {
-      positionId: posId,
+    var res = await api.post('/api/trading/positions/' + posId + '/close', {
       type: type
     }, true);
     if (res.exito) {
       toast(t('position_closed'), 'success');
-      loadTradingData();
+      polling.fetchAll();
     } else {
       toast('Error: ' + (res.error || t('could_not_close')), 'error');
     }
@@ -1842,7 +1841,7 @@ async function dismissPosition(posId, type) {
     }, true);
     if (res.exito) {
       toast(t('position_dismissed'), 'success');
-      loadTradingData();
+      polling.fetchAll();
     } else {
       toast('Error: ' + (res.error || t('could_not_dismiss')), 'error');
     }
