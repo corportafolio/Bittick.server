@@ -13,5 +13,6 @@ server.log
 .opencode
 diseño de pantallas/
 docs/
+public/Bittick web/
 public/sats-connect.min.js
 *.binary
