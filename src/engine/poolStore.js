@@ -251,7 +251,7 @@ function deleteInscriptionPreferences(inscriptionId) {
 
 function updateInscriptionBudget(inscriptionId, mode, budget) {
   const field = mode === 'spot' ? 'spot_budget' : 'futures_budget';
-  db.run(`UPDATE inscription_preferences SET ${field} = ?, updated_at = datetime('now') WHERE inscription_id = ?`, [budget, inscriptionId]);
+  db.run(`UPDATE inscription_preferences SET ${field} = ${field} + ?, updated_at = datetime('now') WHERE inscription_id = ?`, [budget, inscriptionId]);
   save();
 }
 
