@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -18,7 +18,7 @@
 
 <!-- HEADER (siempre visible) -->
     <header id="header">
-      <button id="opp-toggle-btn" class="icon-btn" aria-label="Oportunidades" title="Mostrar/ocultar oportunidades">
+      <button id="opp-toggle-btn" class="icon-btn" aria-label="Oportunidades" title="Mostrar/ocultar oportunidades" data-i18n-aria="opportunities" data-i18n-title="toggle_opportunities">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M16.247 7.761a6 6 0 0 1 0 8.478"/>
           <path d="M19.075 4.933a10 10 0 0 1 0 14.134"/>
@@ -32,7 +32,7 @@
       </div>
       <span id="bot-info" class="header-bot-info"></span>
       <span id="btc-price" class="header-btc-price">---</span>
-      <button id="notif-btn" class="icon-btn" aria-label="Notificaciones">
+      <button id="notif-btn" class="icon-btn" aria-label="Notificaciones" data-i18n-aria="notifications">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span id="notif-badge" class="badge hidden"></span>
       </button>
@@ -47,8 +47,8 @@
     <!-- PANEL DERECHO (overlay) -->
     <div id="right-panel" class="panel-closed">
       <div class="panel-header">
-        <span>MENU</span>
-        <button id="panel-close" class="icon-btn" aria-label="Cerrar">
+        <span data-i18n="menu">MENU</span>
+        <button id="panel-close" class="icon-btn" aria-label="Cerrar" data-i18n-aria="close">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -59,7 +59,7 @@
         </button>
         <button class="panel-nav-btn" data-nav="#/dashboard" id="menu-dashboard-btn">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          Pantalla Principal
+          <span data-i18n="main_screen">Pantalla Principal</span>
         </button>
         <div id="wallet-info" class="hidden">
           <div class="panel-wallet-address">
@@ -68,7 +68,7 @@
           </div>
           <button id="disconnect-btn" class="panel-nav-btn danger">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            Desconectar
+            <span data-i18n="disconnect">Desconectar</span>
           </button>
         </div>
       </nav>
@@ -81,7 +81,7 @@
       <!-- SIDEBAR: Oportunidades -->
       <aside id="sidebar">
         <div id="sidebar-header">
-          <span>Oportunidades</span>
+          <span data-i18n="opportunities">Oportunidades</span>
           <span id="opp-count" class="opp-count-badge"></span>
         </div>
         <div id="opportunities-list">
@@ -109,8 +109,8 @@
                 <svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="16" fill="#F7931A"/><text x="40" y="52" text-anchor="middle" font-size="40" fill="white" font-weight="700" font-family="system-ui,sans-serif">B</text></svg>
               </div>
               <h1 class="login-title">Bittick</h1>
-              <p class="login-subtitle">Elegí tu wallet</p>
-              <p class="login-desc">Necesitás una wallet Bitcoin con una inscripción Bittick Agent para acceder a funciones premium.</p>
+              <p class="login-subtitle" data-i18n="choose_wallet">Elegí tu wallet</p>
+              <p class="login-desc" data-i18n="login_desc">Necesitás una wallet Bitcoin con una inscripción Bittick Agent para acceder a funciones premium.</p>
 
               <div id="wallet-selector" class="wallet-selector">
                 <div class="wallet-option" id="wallet-opt-unisat" data-wallet="unisat">
@@ -119,7 +119,7 @@
                   </div>
                   <div class="wallet-option-info">
                     <span class="wallet-option-name">UniSat</span>
-                    <span class="wallet-option-status" id="unisat-status">Detectando...</span>
+                    <span class="wallet-option-status" id="unisat-status" data-i18n="detecting">Detectando...</span>
                   </div>
                 </div>
                 <div class="wallet-option" id="wallet-opt-xverse" data-wallet="xverse">
@@ -128,7 +128,7 @@
                   </div>
                   <div class="wallet-option-info">
                     <span class="wallet-option-name">Xverse</span>
-                    <span class="wallet-option-status" id="xverse-status">Detectando...</span>
+                    <span class="wallet-option-status" id="xverse-status" data-i18n="detecting">Detectando...</span>
                   </div>
                 </div>
               </div>
@@ -142,17 +142,17 @@
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F44336" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                 </div>
                 <span id="login-error-msg" class="login-error-text"></span>
-                <button id="retry-btn" class="btn btn-secondary">Reintentar</button>
+                <button id="retry-btn" class="btn btn-secondary" data-i18n="retry">Reintentar</button>
               </div>
-              <p class="login-info">Las inscripciones Bittick Agent son NFTs en Bitcoin (Ordinals). Cada una desbloquea un bot con tier FOUNDER o STANDARD.</p>
+              <p class="login-info" data-i18n="login_info">Las inscripciones Bittick Agent son NFTs en Bitcoin (Ordinals). Cada una desbloquea un bot con tier FOUNDER o STANDARD.</p>
             </div>
           </div>
 
           <!-- Account Screen (solo si hay sesión o después de conectar) -->
           <div id="account-screen" class="account-screen hidden">
             <div class="account-header">
-              <h2>Cuenta Bittick</h2>
-              <button id="account-close-btn" class="btn-close" aria-label="Cerrar">✕</button>
+              <h2 data-i18n="account_title">Cuenta Bittick</h2>
+              <button id="account-close-btn" class="btn-close" aria-label="Cerrar" data-i18n-aria="close">✕</button>
             </div>
 
             <!-- Burbuja 1: Wallet Conectada -->
@@ -164,7 +164,7 @@
             <!-- Burbuja 3: Lista de Inscripciones -->
             <div class="account-inscriptions-section">
               <div class="account-inscriptions-header">
-                <span>Seleccionar inscripción</span>
+                <span data-i18n="select_inscription">Seleccionar inscripción</span>
                 <span id="inscription-count" class="inscription-count"></span>
               </div>
               <div id="inscription-list" class="account-inscription-list"></div>
@@ -180,7 +180,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F44336" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
               </div>
               <span id="account-error-msg" class="account-error-text"></span>
-              <button id="account-retry-btn" class="btn btn-secondary">Reintentar</button>
+              <button id="account-retry-btn" class="btn btn-secondary" data-i18n="retry">Reintentar</button>
             </div>
           </div>
         </section>
@@ -192,21 +192,21 @@
             <div id="chart-header-bar" class="chart-header-bar">
               <div id="timeframe-selector" class="timeframe-selector"></div>
               <div id="indicator-menu" class="indicator-menu">
-                <button id="indicator-btn" class="icon-btn" aria-label="Indicadores" title="Indicadores">
+                <button id="indicator-btn" class="icon-btn" aria-label="Indicadores" title="Indicadores" data-i18n-aria="indicators" data-i18n-title="indicators">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20V16"/></svg>
                 </button>
                 <div id="indicator-dropdown" class="indicator-dropdown hidden">
                   <label class="indicator-item">
-                    <input type="checkbox" id="ind-rsi" data-indicator="rsi" checked> <span>RSI (14)</span>
+                    <input type="checkbox" id="ind-rsi" data-indicator="rsi" checked> <span data-i18n="rsi">RSI (14)</span>
                   </label>
                   <label class="indicator-item">
-                    <input type="checkbox" id="ind-sma" data-indicator="sma"> <span>SMA (20)</span>
+                    <input type="checkbox" id="ind-sma" data-indicator="sma"> <span data-i18n="sma">SMA (20)</span>
                   </label>
                   <label class="indicator-item">
-                    <input type="checkbox" id="ind-ema" data-indicator="ema"> <span>EMA (50)</span>
+                    <input type="checkbox" id="ind-ema" data-indicator="ema"> <span data-i18n="ema">EMA (50)</span>
                   </label>
                   <label class="indicator-item">
-                    <input type="checkbox" id="ind-oi" data-indicator="oi"> <span>Open Interest</span>
+                    <input type="checkbox" id="ind-oi" data-indicator="oi"> <span data-i18n="open_interest">Open Interest</span>
                   </label>
                 </div>
               </div>
@@ -220,15 +220,15 @@
           <!-- POSICIONES: 2 columnas -->
           <div id="positions-grid" class="two-col-grid">
             <div id="positions-spot" class="panel-card">
-              <h3 class="panel-card-title">POSICIONES SPOT</h3>
+              <h3 class="panel-card-title" data-i18n="positions_spot">POSICIONES SPOT</h3>
               <div id="spot-positions-list" class="positions-list">
-                <p class="empty-text">Sin posiciones abiertas</p>
+                <p class="empty-text" data-i18n="no_open_positions">Sin posiciones abiertas</p>
               </div>
             </div>
             <div id="positions-futures" class="panel-card">
-              <h3 class="panel-card-title">POSICIONES FUTUROS</h3>
+              <h3 class="panel-card-title" data-i18n="positions_futures">POSICIONES FUTUROS</h3>
               <div id="futures-positions-list" class="positions-list">
-                <p class="empty-text">Sin posiciones abiertas</p>
+                <p class="empty-text" data-i18n="no_open_positions">Sin posiciones abiertas</p>
               </div>
             </div>
           </div>
@@ -236,15 +236,15 @@
           <!-- BOT STATUS: 2 columnas -->
           <div id="bots-grid" class="two-col-grid">
             <div id="bot-spot-card" class="panel-card">
-              <h3 class="panel-card-title">BOT SPOT</h3>
+              <h3 class="panel-card-title" data-i18n="bot_spot">BOT SPOT</h3>
               <div id="bot-spot-content" class="bot-status-content">
-                <p class="empty-text">Conecta wallet para activar</p>
+                <p class="empty-text" data-i18n="connect_wallet_activate">Conecta wallet para activar</p>
               </div>
             </div>
             <div id="bot-futures-card" class="panel-card">
-              <h3 class="panel-card-title">BOT FUTUROS</h3>
+              <h3 class="panel-card-title" data-i18n="bot_futures">BOT FUTUROS</h3>
               <div id="bot-futures-content" class="bot-status-content">
-                <p class="empty-text">Conecta wallet para activar</p>
+                <p class="empty-text" data-i18n="connect_wallet_activate">Conecta wallet para activar</p>
               </div>
             </div>
           </div>

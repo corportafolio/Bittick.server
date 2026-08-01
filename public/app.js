@@ -20,6 +20,64 @@ var TF_OPTIONS = [
   { label: '1ME', value: '1M' }
 ];
 
+/* --- I18N --- */
+var currentLang = localStorage.getItem('bittick_lang') || 'en';
+var strings = {};
+
+function t(key) {
+  return strings[key] !== undefined ? strings[key] : key;
+}
+
+function loadStrings(lang, cb) {
+  lang = lang || 'en';
+  fetch('/i18n/' + lang + '.json')
+    .then(function(r) { if (!r.ok) throw new Error('i18n ' + r.status); return r.json(); })
+    .then(function(data) {
+      strings = data || {};
+      currentLang = lang;
+      localStorage.setItem('bittick_lang', lang);
+      document.documentElement.lang = lang;
+      applyTranslations();
+      if (cb) cb();
+    })
+    .catch(function(e) {
+      if (lang !== 'en') loadStrings('en', cb);
+      else if (cb) cb();
+    });
+}
+
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+    el.placeholder = t(el.getAttribute('data-i18n-placeholder'));
+  });
+  document.querySelectorAll('[data-i18n-aria]').forEach(function(el) {
+    el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+    el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
+  });
+  if (typeof renderCurrentViewTranslations === 'function') renderCurrentViewTranslations();
+}
+
+function renderCurrentViewTranslations() {
+  var route = store.state.ui.currentRoute ? store.state.ui.currentRoute.replace('#/', '') : 'dashboard';
+  if (route === 'dashboard') {
+    renderOpportunities();
+    renderSpotPositions();
+    renderFuturesPositions();
+    renderBotStatus();
+    if (typeof loadChart === 'function') loadChart();
+  } else if (route === 'settings') {
+    renderSettings();
+  } else if (route === 'account') {
+    renderAccountScreen();
+  }
+  detectWalletUI();
+}
+
 /* --- STATE --- */
 var store = {
   state: {
@@ -219,34 +277,34 @@ function detectInstalledWallets() {
 function connectWallet(walletId) {
   if (walletId === 'unisat') {
     return window.unisat.requestAccounts().then(function(accs) {
-      if (!accs || !accs.length) throw new Error('No se detectaron cuentas en UniSat');
+      if (!accs || !accs.length) throw new Error(t('no_accounts_detected'));
       return accs[0];
     });
   }
   if (walletId === 'xverse') {
     return new Promise(function(resolve, reject) {
       var provider = window.XverseProviders && window.XverseProviders['xverse'];
-      if (!provider) return reject(new Error('Xverse no está instalado'));
+      if (!provider) return reject(new Error(t('xverse_not_installed')));
       provider.connect().then(function(response) {
         if (response.addresses && response.addresses.length) {
           var ord = response.addresses.find(function(a) { return a.purpose === 'ordinals'; });
           var pay = response.addresses.find(function(a) { return a.purpose === 'payment'; });
           resolve((ord || pay || response.addresses[0]).address);
         } else {
-          reject(new Error('Conexión cancelada por el usuario'));
+          reject(new Error(t('connection_cancelled')));
         }
       }).catch(function(err) {
-        reject(new Error(err.message || 'Error conectando con Xverse'));
+        reject(new Error(err.message || t('error_connecting_xverse')));
       });
     });
   }
-  return Promise.reject(new Error('Wallet no soportada: ' + walletId));
+  return Promise.reject(new Error(t('error_wallet_not_supported') + ': ' + walletId));
 }
 
 function getNonce(address) {
   return api.get('/api/auth/nonce?address=' + encodeURIComponent(address), false)
     .then(function(json) {
-      if (!json.exito) throw new Error(json.error || 'Error obteniendo nonce');
+      if (!json.exito) throw new Error(json.error || t('error_nonce'));
       return { nonce: json.data.nonce, message: json.data.message };
     });
 }
@@ -260,28 +318,28 @@ function signMessage(walletId, message, address) {
   if (walletId === 'xverse') {
     return new Promise(function(resolve, reject) {
       var provider = window.XverseProviders && window.XverseProviders['xverse'];
-      if (!provider) return reject(new Error('Xverse no está instalado'));
+      if (!provider) return reject(new Error(t('xverse_not_installed')));
       provider.signMessage(message, address).then(function(response) {
         if (response.signature) {
           resolve(response.signature);
         } else {
-          reject(new Error('Firma cancelada por el usuario'));
+          reject(new Error(t('signature_cancelled')));
         }
       }).catch(function(err) {
-        reject(new Error(err.message || 'Error firmando con Xverse'));
+        reject(new Error(err.message || t('error_signing_xverse')));
       });
     });
   }
-  return Promise.reject(new Error('Wallet no soportada: ' + walletId));
+  return Promise.reject(new Error(t('error_wallet_not_supported') + ': ' + walletId));
 }
 
 function verifyWallet(address, signature, nonce) {
   return api.post('/api/auth/verify-wallet', { address: address, signature: signature, nonce: nonce }, false)
     .then(function(json) {
-      if (!json.exito) throw new Error(json.error || 'Error verificando wallet');
+      if (!json.exito) throw new Error(json.error || t('error_verifying_wallet'));
       var d = json.data;
       if (!d.verified || d.count === 0) {
-        throw new Error(d.message || 'Wallet no posee un Bittick Agent');
+        throw new Error(d.message || t('error_no_agent'));
       }
       return d;
     });
@@ -290,7 +348,7 @@ function verifyWallet(address, signature, nonce) {
 function selectInscription(inscriptionId) {
   return api.post('/api/auth/select-inscription', { inscriptionId: inscriptionId }, true)
     .then(function(json) {
-      if (!json.exito) throw new Error(json.error || 'Error seleccionando inscripción');
+      if (!json.exito) throw new Error(json.error || t('error_selecting_inscription'));
       return json.data;
     });
 }
@@ -351,7 +409,7 @@ function disconnect() {
   polling.stop();
   closePanel();
   window.location.hash = '#/dashboard';
-  toast('Wallet desconectada', 'info');
+  toast(t('wallet_disconnected'), 'info');
 }
 
 /* --- BOT IMAGE CACHE --- */
@@ -451,12 +509,12 @@ function renderWalletCard() {
 
   cardEl.innerHTML =
     '<div class="wallet-card-header">' +
-      '<span class="wallet-card-title">Wallet conectada</span>' +
+      '<span class="wallet-card-title">' + t('wallet_connected') + '</span>' +
       '<span class="wallet-card-badge ' + (isPremium ? 'premium' : 'free') + '">' + (isPremium ? 'PREMIUM' : 'GRATIS') + '</span>' +
     '</div>' +
     (botNum ? '<div class="wallet-card-bot">' + botImageHtml + '<span class="wallet-card-bot-num">Bot #' + botNum + '</span></div>' : '') +
     '<div class="wallet-card-address">' + truncated + '</div>' +
-    '<button id="disconnect-btn-account" class="btn btn-secondary btn-sm">Desconectar</button>';
+    '<button id="disconnect-btn-account" class="btn btn-secondary btn-sm">' + t('disconnect') + '</button>';
 
   // Bind disconnect
   var disconnectBtn = cardEl.querySelector('#disconnect-btn-account');
@@ -514,7 +572,7 @@ function renderInscriptionList() {
   if (!listEl || !auth.inscriptions) return;
 
   var inscriptions = auth.inscriptions;
-  countEl.textContent = inscriptions.length + ' inscripción(es)';
+  countEl.textContent = inscriptions.length + ' ' + t('inscriptions_label');
 
   listEl.innerHTML = '';
 
@@ -581,7 +639,7 @@ function onUseBot(inscriptionId) {
         botImageUrl: selData.botImageUrl,
         botName: 'Bot #' + selData.selectedBotNum
       });
-      toast('Bot #' + selData.selectedBotNum + ' seleccionado', 'success');
+      toast('Bot #' + selData.selectedBotNum + ' ' + t('bot_selected'), 'success');
       saveSession();
       previewInscription = null;
       // Update header and menu bot image
@@ -593,10 +651,10 @@ function onUseBot(inscriptionId) {
       polling.start();
     })
     .catch(function(err) {
-      toast(err.message || 'Error seleccionando bot', 'error');
+      toast(err.message || t('error_selecting_bot'), 'error');
       if (useBtn) {
         useBtn.disabled = false;
-        useBtn.textContent = 'USAR';
+        useBtn.textContent = t('use');
       }
     });
 }
@@ -644,8 +702,8 @@ function fullLoginFlow(walletId) {
 
   Promise.resolve()
     .then(function() {
-      if (!walletId) throw new Error('Seleccioná una wallet para conectar');
-      statusEl.textContent = 'Conectando wallet...';
+      if (!walletId) throw new Error(t('select_wallet_to_connect'));
+      statusEl.textContent = t('connecting_wallet');
       return connectWallet(walletId);
     })
     .then(function(addr) {
@@ -700,13 +758,13 @@ function fullLoginFlow(walletId) {
       if (accountScreen) accountScreen.classList.remove('hidden');
     })
     .catch(function(err) {
-      toast(err.message || 'Error en la conexión', 'error');
+      toast(err.message || t('connection_error'), 'error');
       loading.classList.add('hidden');
       if (selectorEl) selectorEl.classList.remove('hidden');
       if (walletSelectorSection) walletSelectorSection.classList.remove('hidden');
       if (accountScreen) accountScreen.classList.add('hidden');
       errorEl.classList.remove('hidden');
-      els['login-error-msg'].textContent = err.message || 'Error desconocido';
+      els['login-error-msg'].textContent = err.message || t('unknown_error');
     });
 }
 
@@ -717,7 +775,7 @@ function showInscriptionSelect(inscriptions) {
   var useBtn = els['use-bot-btn'];
 
   selectEl.classList.remove('hidden');
-  countEl.textContent = inscriptions.length + ' inscripción(es) encontrada(s)';
+  countEl.textContent = inscriptions.length + ' ' + t('inscriptions_found');
   listEl.innerHTML = '';
 
   var selected = null;
@@ -747,7 +805,7 @@ function showInscriptionSelect(inscriptions) {
   useBtn.onclick = function() {
     if (!selected) return;
     useBtn.disabled = true;
-    toast('Seleccionando bot...', 'info');
+    toast(t('selecting_bot'), 'info');
     selectInscription(selected)
       .then(function(selData) {
         store.dispatch('SET_AUTH', {
@@ -757,13 +815,13 @@ function showInscriptionSelect(inscriptions) {
           botImageUrl: selData.botImageUrl,
           botName: 'Bot #' + selData.selectedBotNum
         });
-        toast('Bot #' + selData.selectedBotNum + ' seleccionado', 'success');
+        toast('Bot #' + selData.selectedBotNum + ' ' + t('bot_selected'), 'success');
         saveSession();
         selectEl.classList.add('hidden');
         window.location.hash = '#/dashboard';
       })
       .catch(function(err) {
-        toast(err.message || 'Error seleccionando bot', 'error');
+        toast(err.message || t('error_selecting_bot'), 'error');
         useBtn.disabled = false;
       });
   };
@@ -921,7 +979,7 @@ function onHashChange() {
   var route = hash.replace('#/', '') || 'dashboard';
 
   if (route === 'settings' && !isPremium()) {
-    toast('Conecta una wallet para acceder a ajustes', 'warning');
+    toast(t('connect_wallet_settings'), 'warning');
     window.location.hash = '#/dashboard';
     return;
   }
@@ -962,7 +1020,7 @@ function updateHeader() {
       '<img src="' + (auth.botImageUrl || botImage(auth.botNum)) + '" alt="Bot" onerror="this.style.display=\'none\'">' +
       '<span style="' + tierColor + '">Bot #' + auth.botNum + ' · ' + (auth.tier || 'STANDARD') + '</span>';
   } else {
-    botInfoEl.innerHTML = '<span style="color:var(--text-muted)">Free Tier</span>';
+    botInfoEl.innerHTML = '<span style="color:var(--text-muted)">' + t('free_tier') + '</span>';
   }
   renderBtcPrice();
   // Update header bot image and menu
@@ -1006,7 +1064,7 @@ function loadChart() {
     container.innerHTML =
       '<div class="chart-placeholder">' +
         '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
-        '<span>Conecta wallet para ver el gráfico</span>' +
+        '<span>' + t('connect_wallet_chart') + '</span>' +
       '</div>';
     els['chart-info'].innerHTML = '';
     return;
@@ -1373,7 +1431,7 @@ function renderOpportunities() {
   if (countEl) countEl.textContent = opps.length;
 
   if (!opps.length) {
-    safeSetHTML(list, '<p class="empty-text" style="padding:32px 0">No hay oportunidades score ≥5 en este momento</p>');
+    safeSetHTML(list, '<p class="empty-text" style="padding:32px 0">' + t('no_opportunities') + '</p>');
     return;
   }
 
@@ -1423,7 +1481,7 @@ function renderOpportunities() {
           var now = new Date();
           var esHoy = oppDate.toDateString() === now.toDateString();
           var hora = oppDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-          var fechaTxt = esHoy ? 'Hoy' : oppDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+          var fechaTxt = esHoy ? t('today') : oppDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
           fechaHTML = '<div class="opp-card-footer">' +
             '<span class="opp-card-time">' + hora + '</span>' +
             '<span class="opp-card-date">' + fechaTxt + '</span>' +
@@ -1436,8 +1494,8 @@ function renderOpportunities() {
 
     var firstLine = [];
     if (val(opp.sma_20)) firstLine.push('SMA20 ' + opp.sma_20);
-    if (val(opp.support_zone)) firstLine.push('Soporte ' + opp.support_zone);
-    if (val(opp.resistance_zone)) firstLine.push('Resistencia ' + opp.resistance_zone);
+    if (val(opp.support_zone)) firstLine.push(t('support') + ' ' + opp.support_zone);
+    if (val(opp.resistance_zone)) firstLine.push(t('resistance') + ' ' + opp.resistance_zone);
     var firstLineText = firstLine.length > 0 ? firstLine.join(', ') + '.' : '';
 
     var detailParts = [];
@@ -1446,27 +1504,27 @@ function renderOpportunities() {
     if (val(opp.atr)) detailParts.push('ATR ' + opp.atr);
     if (val(opp.ema_50)) detailParts.push('EMA 50: ' + opp.ema_50);
     if (val(opp.sma_50)) detailParts.push('SMA 50: ' + opp.sma_50);
-    if (val(opp.drop_pct)) detailParts.push('Caída ' + opp.drop_pct + '%');
-    if (val(opp.rise_pct)) detailParts.push('Subida ' + opp.rise_pct + '%');
-    if (val(opp.drop_percent)) detailParts.push('Caída ' + opp.drop_percent + '%');
-    if (val(opp.distance_from_sma)) detailParts.push('Distancia SMA ' + opp.distance_from_sma + '%');
-    if (val(opp.distance_pct)) detailParts.push('Distancia ' + opp.distance_pct + '%');
-    if (val(opp.fib_levels)) detailParts.push('Nivel Fib ' + opp.fib_levels);
-    if (val(opp.zone_type)) detailParts.push('Zona ' + opp.zone_type + (val(opp.zone_strength) ? ' (fuerza x' + opp.zone_strength + ')' : ''));
-    if (val(opp.zone_mid)) detailParts.push('Zona media ' + opp.zone_mid);
-    if (val(opp.through_back)) detailParts.push('Ruptura ' + (opp.through_back === 1 ? 'confirmada' : 'no confirmada'));
-    if (val(opp.volume_ratio)) detailParts.push('Volumen x' + opp.volume_ratio);
+    if (val(opp.drop_pct)) detailParts.push(t('drop') + ' ' + opp.drop_pct + '%');
+    if (val(opp.rise_pct)) detailParts.push(t('rise') + ' ' + opp.rise_pct + '%');
+    if (val(opp.drop_percent)) detailParts.push(t('drop') + ' ' + opp.drop_percent + '%');
+    if (val(opp.distance_from_sma)) detailParts.push(t('distance_sma') + ' ' + opp.distance_from_sma + '%');
+    if (val(opp.distance_pct)) detailParts.push(t('distance') + ' ' + opp.distance_pct + '%');
+    if (val(opp.fib_levels)) detailParts.push(t('fib_level') + ' ' + opp.fib_levels);
+    if (val(opp.zone_type)) detailParts.push(t('zone') + ' ' + opp.zone_type + (val(opp.zone_strength) ? ' (fuerza x' + opp.zone_strength + ')' : ''));
+    if (val(opp.zone_mid)) detailParts.push(t('mid_zone') + ' ' + opp.zone_mid);
+    if (val(opp.through_back)) detailParts.push(t('breakout') + ' ' + (opp.through_back === 1 ? t('confirmed') : t('not_confirmed')));
+    if (val(opp.volume_ratio)) detailParts.push(t('volume') + ' x' + opp.volume_ratio);
     if (val(opp.zona_actual)) detailParts.push(opp.zona_actual);
     if (opp.ai_explanation) detailParts.push(opp.ai_explanation);
     try {
       var parsedFactors = typeof opp.factors === 'string' ? JSON.parse(opp.factors) : opp.factors;
-      if (parsedFactors && parsedFactors.length) detailParts.push('Factores: ' + parsedFactors.join(', '));
+      if (parsedFactors && parsedFactors.length) detailParts.push(t('factors') + ': ' + parsedFactors.join(', '));
     } catch (_) {}
     try {
       var parsedRisks = typeof opp.risks === 'string' ? JSON.parse(opp.risks) : opp.risks;
-      if (parsedRisks && parsedRisks.length) detailParts.push('Riesgos: ' + parsedRisks.join(', '));
+      if (parsedRisks && parsedRisks.length) detailParts.push(t('risks') + ': ' + parsedRisks.join(', '));
     } catch (_) {}
-    detailParts.push('Semáforo: ' + semaforo + (semaforo === 'ROJO' ? ' — Precaución.' : semaforo === 'AMARILLO' ? ' — Tener precaución.' : ' — Buena oportunidad.'));
+    detailParts.push(t('traffic_light') + ': ' + semaforo + (semaforo === 'ROJO' ? ' — ' + t('caution') : semaforo === 'AMARILLO' ? ' — ' + t('have_caution') : ' — ' + t('good_opportunity')));
 
     var detailText = detailParts.join(', ');
 
@@ -1490,10 +1548,10 @@ function renderOpportunities() {
         '<span class="opp-card-change" style="color:var(--text-secondary)">Conf: ' + confidence.toFixed(0) + '</span>' +
       '</div>' +
       '<div class="opp-card-row">' +
-        '<span class="label">Entrada</span><span class="value">' + formatPrice(entryPrice) + '</span>' +
-        '<span class="label">Actual</span><span class="value">' + formatPrice(currentPrice) + '</span>' +
-        '<span class="label">Objetivo</span><span class="value">' + formatPrice(target) + '</span>' +
-        (botType === 'futures' && stopLoss ? '<span class="label">Stop</span><span class="value">' + formatPrice(stopLoss) + '</span>' : '') +
+        '<span class="label">' + t('entry') + '</span><span class="value">' + formatPrice(entryPrice) + '</span>' +
+        '<span class="label">' + t('current') + '</span><span class="value">' + formatPrice(currentPrice) + '</span>' +
+        '<span class="label">' + t('target') + '</span><span class="value">' + formatPrice(target) + '</span>' +
+        (botType === 'futures' && stopLoss ? '<span class="label">' + t('stop') + '</span><span class="value">' + formatPrice(stopLoss) + '</span>' : '') +
       '</div>' +
       analysisHTML +
       fechaHTML +
@@ -1540,14 +1598,14 @@ function renderSpotPositions() {
   var closed = positions.closed || [];
   
   if (!open.length && !closed.length) {
-    safeSetHTML(el, '<p class="empty-text">Sin posiciones</p>');
+    safeSetHTML(el, '<p class="empty-text">' + t('no_positions') + '</p>');
     return;
   }
   
   var html = '<div class="open-positions">' + open.map(renderPositionItem).join('') + '</div>';
   if (closed.length) {
-    html += '<div class="closed-positions-section"><h4>Posiciones Cerradas (30 días)</h4>' + 
-      closed.map(function(p) { return renderPositionItem(p) + '<div class="position-closed-badge">CERRADA</div>'; }).join('') + 
+    html += '<div class="closed-positions-section"><h4>' + t('closed_positions') + '</h4>' + 
+      closed.map(function(p) { return renderPositionItem(p) + '<div class="position-closed-badge">' + t('closed_badge') + '</div>'; }).join('') + 
       '</div>';
   }
   
@@ -1563,14 +1621,14 @@ function renderFuturesPositions() {
   var closed = positions.closed || [];
   
   if (!open.length && !closed.length) {
-    safeSetHTML(el, '<p class="empty-text">Sin posiciones</p>');
+    safeSetHTML(el, '<p class="empty-text">' + t('no_positions') + '</p>');
     return;
   }
   
   var html = '<div class="open-positions">' + open.map(renderPositionItem).join('') + '</div>';
   if (closed.length) {
-    html += '<div class="closed-positions-section"><h4>Posiciones Cerradas (30 días)</h4>' + 
-      closed.map(function(p) { return renderPositionItem(p) + '<div class="position-closed-badge">CERRADA</div>'; }).join('') + 
+    html += '<div class="closed-positions-section"><h4>' + t('closed_positions') + '</h4>' + 
+      closed.map(function(p) { return renderPositionItem(p) + '<div class="position-closed-badge">' + t('closed_badge') + '</div>'; }).join('') + 
       '</div>';
   }
   safeSetHTML(el, html);
@@ -1595,7 +1653,7 @@ function bindPositionActions(container, type) {
 }
 
 async function closePosition(posId, type) {
-  var confirmed = window.confirm('¿Cerrar esta posición? Esta acción no se puede deshacer.');
+  var confirmed = window.confirm(t('confirm_close_position'));
   if (!confirmed) return;
   try {
     var res = await api.post('/api/trading/positions/close', {
@@ -1603,10 +1661,10 @@ async function closePosition(posId, type) {
       type: type
     }, true);
     if (res.exito) {
-      toast('Posición cerrada', 'success');
+      toast(t('position_closed'), 'success');
       loadTradingData();
     } else {
-      toast('Error: ' + (res.error || 'No se pudo cerrar'), 'error');
+      toast('Error: ' + (res.error || t('could_not_close')), 'error');
     }
   } catch (e) {
     toast('Error: ' + e.message, 'error');
@@ -1614,17 +1672,17 @@ async function closePosition(posId, type) {
 }
 
 async function dismissPosition(posId, type) {
-  if (!confirm("Descartar esta posicion cerrada?")) return;
+  if (!confirm(t('confirm_dismiss'))) return;
   try {
     var res = await api.post('/api/trading/positions/dismiss', {
       positionId: posId,
       type: type
     }, true);
     if (res.exito) {
-      toast('Posición descartada', 'success');
+      toast(t('position_dismissed'), 'success');
       loadTradingData();
     } else {
-      toast('Error: ' + (res.error || 'No se pudo descartar'), 'error');
+      toast('Error: ' + (res.error || t('could_not_dismiss')), 'error');
     }
   } catch (e) {
     toast('Error: ' + e.message, 'error');
@@ -1650,7 +1708,7 @@ function renderPositionItem(p) {
   var badgeTypeClass = type === 'futures' ? (side === 'SHORT' ? 'badge-short' : 'badge-long') : 'badge-spot';
   var badgeTypeLabel = type === 'futures' ? '[' + side + ']' : '[SPOT]';
   var badgeStatusClass = isOpen ? 'badge-open' : 'badge-closed';
-  var badgeStatusLabel = isOpen ? '[Abierta]' : '[Cerrada]';
+  var badgeStatusLabel = isOpen ? t('open_badge') : t('closed');
 
   var entryPriceFmt = entryPrice != null ? formatPrice(entryPrice) : '—';
   var currentPriceFmt = currentPrice != null ? formatPrice(currentPrice) : '—';
@@ -1671,31 +1729,31 @@ function renderPositionItem(p) {
       '<span class="position-pnl ' + (isPos ? 'positive' : 'negative') + '" style="margin-left:auto">' + (isPos ? '+' : '') + pnl.toFixed(2) + ' USDT' + (isOpen ? '' : ' (' + pnlPct.toFixed(2) + '%)') + '</span>' +
     '</div>' +
     '<div class="position-details">' +
-      '<span>Puntaje: ' + score + '/10</span>' +
-      '<span>Confianza: ' + confidence + '/10</span>' +
-      (investedUsdtFmt !== '—' ? '<span>Apostado: $' + investedUsdtFmt + '</span>' : '') +
+      '<span>' + t('score') + ': ' + score + '/10</span>' +
+      '<span>' + t('confidence') + ': ' + confidence + '/10</span>' +
+      (investedUsdtFmt !== '—' ? '<span>' + t('invested') + ': $' + investedUsdtFmt + '</span>' : '') +
     '</div>' +
     '<div class="position-prices">';
 
   if (isOpen) {
     html +=
-      '<div class="price-item"><span class="price-label">Entrada</span><span class="price-value">' + entryPriceFmt + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Actual</span><span class="price-value">' + currentPriceFmt + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPriceFmt + '</span></div>';
+      '<div class="price-item"><span class="price-label">' + t('entry') + '</span><span class="price-value">' + entryPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">' + t('current') + '</span><span class="price-value">' + currentPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">' + t('target') + '</span><span class="price-value">' + targetPriceFmt + '</span></div>';
     if (type === 'futures' && stopPriceFmt !== '—') {
-      html += '<div class="price-item"><span class="price-label">Stop</span><span class="price-value stop">' + stopPriceFmt + '</span></div>';
+      html += '<div class="price-item"><span class="price-label">' + t('stop') + '</span><span class="price-value stop">' + stopPriceFmt + '</span></div>';
     }
     if (type === 'spot') {
-      html += '<div class="price-item"><span class="price-label">Stop</span><span class="price-value spot-warning">⚠ Sin stop. Cierre manual</span></div>';
+      html += '<div class="price-item"><span class="price-label">' + t('stop') + '</span><span class="price-value spot-warning">' + t('no_stop_manual') + '</span></div>';
     }
   } else {
     var closedPriceFmt = p.current_price ? formatPrice(p.current_price) : currentPriceFmt;
     var leverageStr = p.leverage ? p.leverage + 'x' : '1x';
     html +=
-      '<div class="price-item"><span class="price-label">Entrada</span><span class="price-value">' + entryPriceFmt + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Cerrada</span><span class="price-value">' + closedPriceFmt + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Objetivo</span><span class="price-value">' + targetPriceFmt + '</span></div>' +
-      '<div class="price-item"><span class="price-label">Apalancamiento</span><span class="price-value">' + leverageStr + '</span></div>';
+      '<div class="price-item"><span class="price-label">' + t('entry') + '</span><span class="price-value">' + entryPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">' + t('closed') + '</span><span class="price-value">' + closedPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">' + t('target') + '</span><span class="price-value">' + targetPriceFmt + '</span></div>' +
+      '<div class="price-item"><span class="price-label">' + t('leverage') + '</span><span class="price-value">' + leverageStr + '</span></div>';
   }
 
   html += '</div>' +
@@ -1703,12 +1761,12 @@ function renderPositionItem(p) {
 
   if (isOpen) {
     html +=
-      '<span class="timestamp-bubble"><span class="timestamp-label">Iniciada</span><span class="timestamp-value">' + openedAt + '</span></span>' +
-      '<span class="timestamp-bubble"><span class="timestamp-label">Terminada</span><span class="timestamp-value">' + (closedAt || '—') + '</span></span>';
+      '<span class="timestamp-bubble"><span class="timestamp-label">' + t('started') + '</span><span class="timestamp-value">' + openedAt + '</span></span>' +
+      '<span class="timestamp-bubble"><span class="timestamp-label">' + t('finished') + '</span><span class="timestamp-value">' + (closedAt || '—') + '</span></span>';
   } else {
     html +=
-      '<span class="timestamp-bubble"><span class="timestamp-label">Iniciada</span><span class="timestamp-value">' + openedAt + '</span></span>' +
-      '<span class="timestamp-bubble"><span class="timestamp-label">Terminada</span><span class="timestamp-value">' + closedAt + '</span></span>';
+      '<span class="timestamp-bubble"><span class="timestamp-label">' + t('started') + '</span><span class="timestamp-value">' + openedAt + '</span></span>' +
+      '<span class="timestamp-bubble"><span class="timestamp-label">' + t('finished') + '</span><span class="timestamp-value">' + closedAt + '</span></span>';
   }
 
   html += '</div>';
@@ -1717,13 +1775,13 @@ function renderPositionItem(p) {
     var closeBtnId = 'close-pos-' + (p.id || 'unknown');
     html +=
       '<div class="position-actions">' +
-        '<button class="btn btn-danger btn-sm" id="' + closeBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '">CERRAR POSICIÓN</button>' +
+        '<button class="btn btn-danger btn-sm" id="' + closeBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '">' + t('close_position_btn') + '</button>' +
       '</div>';
   } else {
     var dismissBtnId = 'dismiss-pos-' + (p.id || 'unknown');
     html +=
       '<div class="position-actions">' +
-        '<button class="btn btn-secondary btn-sm" id="' + dismissBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">[🗑] Descartar</button>' +
+        '<button class="btn btn-secondary btn-sm" id="' + dismissBtnId + '" data-pos-id="' + (p.id || '') + '" data-type="' + type + '" style="background:transparent;border:1px solid var(--border);color:var(--text-secondary)">[🗑] ' + t('dismiss') + '</button>' +
       '</div>';
   }
 
@@ -1760,10 +1818,10 @@ function renderBotStatus() {
     var spotEl = els['bot-spot-content'];
     var futuresEl = els['bot-futures-content'];
     var freeBotHTML =
-      '<div class="bot-row"><span class="bot-label">Estado</span><span class="bot-value stopped"><span class="status-dot red"></span>Inactivo</span></div>' +
-      '<div class="bot-row"><span class="bot-label">API Keys</span><span class="bot-value stopped">Sin configurar</span></div>' +
+      '<div class="bot-row"><span class="bot-label">' + t('status') + '</span><span class="bot-value stopped"><span class="status-dot red"></span>' + t('inactive') + '</span></div>' +
+      '<div class="bot-row"><span class="bot-label">API Keys</span><span class="bot-value stopped">' + t('not_configured') + '</span></div>' +
       '<div class="bot-row"><span class="bot-label">Tier</span><span class="bot-value">Free</span></div>' +
-      '<div class="bot-row"><span class="bot-label">Acción</span><span class="bot-value" style="color:var(--accent);font-size:.75rem">Conecta wallet para activar</span></div>';
+      '<div class="bot-row"><span class="bot-label">' + t('action') + '</span><span class="bot-value" style="color:var(--accent);font-size:.75rem">' + t('connect_wallet_activate') + '</span></div>';
     if (spotEl) safeSetHTML(spotEl, freeBotHTML);
     if (futuresEl) safeSetHTML(futuresEl, freeBotHTML);
     return;
@@ -1776,7 +1834,7 @@ function renderBotCard(elId, status, type) {
   var el = els[elId];
   if (!el) return;
   if (!status) {
-    safeSetHTML(el, '<p class="empty-text">Conecta wallet para ver estado</p>');
+    safeSetHTML(el, '<p class="empty-text">' + t('connect_wallet_activate') + '</p>');
     return;
   }
 
@@ -1791,17 +1849,17 @@ function renderBotCard(elId, status, type) {
   var balanceTotal = balance.total != null ? parseFloat(balance.total) : 0;
   var dotClass = enabled ? 'green' : 'red';
   var valueClass = enabled ? 'running' : 'stopped';
-  var modeLabel = enabled ? 'Activo' : 'Detenido';
+  var modeLabel = enabled ? t('active') : t('stopped');
 
   safeSetHTML(el,
-    '<div class="bot-row"><span class="bot-label">Estado</span><span class="bot-value ' + valueClass + '"><span class="status-dot ' + dotClass + '"></span>' + modeLabel + '</span></div>' +
-    '<div class="bot-row"><span class="bot-label">API Keys</span><span class="bot-value ' + (hasApiKey ? 'running' : 'stopped') + '">' + (hasApiKey ? 'Configuradas' : 'Sin configurar') + '</span></div>' +
+    '<div class="bot-row"><span class="bot-label">' + t('status') + '</span><span class="bot-value ' + valueClass + '"><span class="status-dot ' + dotClass + '"></span>' + modeLabel + '</span></div>' +
+    '<div class="bot-row"><span class="bot-label">API Keys</span><span class="bot-value ' + (hasApiKey ? 'running' : 'stopped') + '">' + (hasApiKey ? t('configured') : t('not_configured')) + '</span></div>' +
     '<div class="bot-row"><span class="bot-label">Tier</span><span class="bot-value accent">' + (store.state.auth.tier || 'STANDARD') + '</span></div>' +
-    '<div class="bot-row"><span class="bot-label">Posiciones abiertas</span><span class="bot-value">' + openPositions + '/' + maxPositions + '</span></div>' +
-    '<div class="bot-row"><span class="bot-label">Tamaño posición</span><span class="bot-value">' + positionSize + ' USDT</span></div>' +
+    '<div class="bot-row"><span class="bot-label">' + t('open_positions_label') + '</span><span class="bot-value">' + openPositions + '/' + maxPositions + '</span></div>' +
+    '<div class="bot-row"><span class="bot-label">' + t('position_size') + '</span><span class="bot-value">' + positionSize + ' USDT</span></div>' +
     '<div class="bot-row"><span class="bot-label">PnL total</span><span class="bot-value ' + (totalPnl >= 0 ? 'running' : 'stopped') + '">' + (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + ' USDT</span></div>' +
-    '<div class="bot-row"><span class="bot-label">Balance disponible</span><span class="bot-value">' + (balanceAvail > 0 ? formatPrice(balanceAvail) : '---') + '</span></div>' +
-    '<div class="bot-row"><span class="bot-label">Balance total</span><span class="bot-value">' + (balanceTotal > 0 ? formatPrice(balanceTotal) : '---') + '</span></div>'
+    '<div class="bot-row"><span class="bot-label">' + t('balance_available') + '</span><span class="bot-value">' + (balanceAvail > 0 ? formatPrice(balanceAvail) : '---') + '</span></div>' +
+    '<div class="bot-row"><span class="bot-label">' + t('balance_total') + '</span><span class="bot-value">' + (balanceTotal > 0 ? formatPrice(balanceTotal) : '---') + '</span></div>'
   );
 }
 
@@ -1825,6 +1883,11 @@ function loadSettingsData() {
     }
     if (results[2] && results[2].exito) {
       store.dispatch('SET_PREFERENCES', results[2].data || {});
+      var serverLang = results[2].data.language;
+      if (serverLang && serverLang !== currentLang) {
+        loadStrings(serverLang, renderSettings);
+        return;
+      }
     }
     renderSettings();
   }).catch(function(e) {
@@ -1846,58 +1909,64 @@ function renderSettings() {
   el.innerHTML =
     '<div class="two-col-grid">' +
     '<div class="panel-card settings-card">' +
-      '<h3>CUENTA BITTICK</h3>' +
+      '<h3>' + t('settings_account') + '</h3>' +
       '<div class="account-grid">' +
         '<div class="account-avatar">' +
           '<img src="' + botImage(botNum) + '" alt="Bot" style="width:48px;height:48px;border-radius:50%;object-fit:cover" onerror="this.style.display=\'none\'">' +
         '</div>' +
         '<div class="account-info">' +
-          '<div class="settings-row"><span class="settings-label">Bot</span><span class="settings-value">Bot #' + botNum + ' — ' + tier + '</span></div>' +
-          '<div class="settings-row"><span class="settings-label">Wallet</span><span class="settings-value">' + truncateAddress(addr) + '</span></div>' +
-          '<div class="settings-row"><span class="settings-label">Inscripción</span><span class="settings-value">' + (inscId.length > 20 ? inscId.slice(0, 12) + '...' + inscId.slice(-8) : inscId) + '</span></div>' +
+          '<div class="settings-row"><span class="settings-label">' + t('bot') + '</span><span class="settings-value">Bot #' + botNum + ' — ' + tier + '</span></div>' +
+          '<div class="settings-row"><span class="settings-label">' + t('wallet') + '</span><span class="settings-value">' + truncateAddress(addr) + '</span></div>' +
+          '<div class="settings-row"><span class="settings-label">' + t('inscription') + '</span><span class="settings-value">' + (inscId.length > 20 ? inscId.slice(0, 12) + '...' + inscId.slice(-8) : inscId) + '</span></div>' +
         '</div>' +
       '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
-      '<h3>PERMISOS</h3>' +
-      '<div class="settings-row"><span class="settings-label">Notificaciones</span><span class="settings-value" id="s-notif-status">' + ('Notification' in window ? Notification.permission : 'No soportado') + '</span></div>' +
-      '<button class="btn btn-secondary btn-sm" style="margin-top:8px" id="enable-notif-btn">ACTIVAR NOTIFICACIONES</button>' +
+      '<h3>' + t('settings_preferences') + '</h3>' +
+      '<div class="settings-row"><span class="settings-label">' + t('language') + '</span>' +
+        '<span class="settings-value"><select id="lang-select" class="form-input" style="width:auto;padding:6px 8px">' +
+          '<option value="en"' + (currentLang === 'en' ? ' selected' : '') + '>' + t('english') + '</option>' +
+          '<option value="es"' + (currentLang === 'es' ? ' selected' : '') + '>' + t('spanish') + '</option>' +
+        '</select></span>' +
+      '</div>' +
+      '<div class="settings-row"><span class="settings-label">' + t('notifications') + '</span><span class="settings-value" id="s-notif-status">' + ('Notification' in window ? Notification.permission : t('not_supported')) + '</span></div>' +
+      '<button class="btn btn-secondary btn-sm" style="margin-top:8px" id="enable-notif-btn">' + t('enable_notifications') + '</button>' +
     '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
-      '<h3>CLAVES API BINANCE</h3>' +
-      '<div class="settings-row"><span class="settings-label">Spot</span><span class="settings-value ' + (settings.apiKeys.spot?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.spot?.hasKey ? 'Configurada' : 'Sin configurar') + '</span></div>' +
-      '<div class="settings-row"><span class="settings-label">Futuros</span><span class="settings-value ' + (settings.apiKeys.futures?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.futures?.hasKey ? 'Configurada' : 'Sin configurar') + '</span></div>' +
-      '<button class="btn btn-secondary btn-sm" style="margin-top:8px" id="edit-apikeys-btn">EDITAR CLAVES</button>' +
+      '<h3>' + t('api_keys_binance') + '</h3>' +
+      '<div class="settings-row"><span class="settings-label">' + t('spot') + '</span><span class="settings-value ' + (settings.apiKeys.spot?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.spot?.hasKey ? t('configured') : t('not_configured')) + '</span></div>' +
+      '<div class="settings-row"><span class="settings-label">' + t('futures') + '</span><span class="settings-value ' + (settings.apiKeys.futures?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.futures?.hasKey ? t('configured') : t('not_configured')) + '</span></div>' +
+      '<button class="btn btn-secondary btn-sm" style="margin-top:8px" id="edit-apikeys-btn">' + t('edit_keys') + '</button>' +
       '<div id="apikeys-form" class="hidden">' +
         '<div class="settings-form">' +
-          '<label style="color:var(--text-secondary);font-size:.75rem">SPOT</label>' +
+          '<label style="color:var(--text-secondary);font-size:.75rem">' + t('spot') + '</label>' +
           '<input type="text" class="form-input" id="inp-spot-key" placeholder="Spot API Key">' +
           '<input type="password" class="form-input" id="inp-spot-secret" placeholder="Spot Secret Key">' +
-          '<label style="color:var(--text-secondary);font-size:.75rem">FUTUROS</label>' +
+          '<label style="color:var(--text-secondary);font-size:.75rem">' + t('futures') + '</label>' +
           '<input type="text" class="form-input" id="inp-futures-key" placeholder="Futures API Key">' +
           '<input type="password" class="form-input" id="inp-futures-secret" placeholder="Futures Secret Key">' +
           '<div class="form-row">' +
-            '<button class="btn btn-primary btn-sm" id="save-apikeys-btn">GUARDAR</button>' +
-            '<button class="btn btn-secondary btn-sm" id="cancel-apikeys-btn">CANCELAR</button>' +
+            '<button class="btn btn-primary btn-sm" id="save-apikeys-btn">' + t('save') + '</button>' +
+            '<button class="btn btn-secondary btn-sm" id="cancel-apikeys-btn">' + t('cancel') + '</button>' +
           '</div>' +
         '</div>' +
       '</div>' +
     '</div>' +
     '<div class="two-col-grid">' +
     '<div class="panel-card settings-card">' +
-      '<h3 class="bot-card-header"><span>NIVELES SPOT</span><span class="bot-header-controls"><select class="budget-select" data-mode="spot"><option value="100"' + ((settings.preferences.spot_budget || 100) == 100 ? ' selected' : '') + '>$100</option><option value="1000"' + ((settings.preferences.spot_budget || 100) == 1000 ? ' selected' : '') + '>$1,000</option><option value="10000"' + ((settings.preferences.spot_budget || 100) == 10000 ? ' selected' : '') + '>$10,000</option></select><button class="toggle-bot-btn ' + (settings.preferences.spot_enabled ? 'active' : 'inactive') + '" data-mode="spot">' + (settings.preferences.spot_enabled ? 'Activo' : 'Inactivo') + '</button></span></h3>' +
+      '<h3 class="bot-card-header"><span>' + t('levels_spot') + '</span><span class="bot-header-controls"><select class="budget-select" data-mode="spot"><option value="100"' + ((settings.preferences.spot_budget || 100) == 100 ? ' selected' : '') + '>$100</option><option value="1000"' + ((settings.preferences.spot_budget || 100) == 1000 ? ' selected' : '') + '>$1,000</option><option value="10000"' + ((settings.preferences.spot_budget || 100) == 10000 ? ' selected' : '') + '>$10,000</option></select><button class="toggle-bot-btn ' + (settings.preferences.spot_enabled ? 'active' : 'inactive') + '" data-mode="spot">' + (settings.preferences.spot_enabled ? t('active') : t('inactive')) + '</button></span></h3>' +
       '<div id="spot-levels-content">' + renderLevelsTable(settings.levels.spot || [], 'spot') + '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
-      '<h3 class="bot-card-header"><span>NIVELES FUTUROS</span><span class="bot-header-controls"><select class="budget-select" data-mode="futures"><option value="200"' + ((settings.preferences.futures_budget || 200) == 200 ? ' selected' : '') + '>$200</option><option value="1000"' + ((settings.preferences.futures_budget || 200) == 1000 ? ' selected' : '') + '>$1,000</option><option value="10000"' + ((settings.preferences.futures_budget || 200) == 10000 ? ' selected' : '') + '>$10,000</option></select><button class="toggle-bot-btn ' + (settings.preferences.futures_enabled ? 'active' : 'inactive') + '" data-mode="futures">' + (settings.preferences.futures_enabled ? 'Activo' : 'Inactivo') + '</button></span></h3>' +
+      '<h3 class="bot-card-header"><span>' + t('levels_futures') + '</span><span class="bot-header-controls"><select class="budget-select" data-mode="futures"><option value="200"' + ((settings.preferences.futures_budget || 200) == 200 ? ' selected' : '') + '>$200</option><option value="1000"' + ((settings.preferences.futures_budget || 200) == 1000 ? ' selected' : '') + '>$1,000</option><option value="10000"' + ((settings.preferences.futures_budget || 200) == 10000 ? ' selected' : '') + '>$10,000</option></select><button class="toggle-bot-btn ' + (settings.preferences.futures_enabled ? 'active' : 'inactive') + '" data-mode="futures">' + (settings.preferences.futures_enabled ? t('active') : t('inactive')) + '</button></span></h3>' +
       '<div id="futures-levels-content">' + renderLevelsTable(settings.levels.futures || [], 'futures') + '</div>' +
     '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
-      '<h3>INFORMACIÓN</h3>' +
-      '<div class="settings-row"><span class="settings-label">Versión</span><span class="settings-value">' + VERSION + '</span></div>' +
-      '<div class="settings-row"><span class="settings-label">Última actualización</span><span class="settings-value">' + (store.state.trading.lastUpdate ? store.state.trading.lastUpdate.toLocaleTimeString() : '---') + '</span></div>' +
+      '<h3>' + t('info') + '</h3>' +
+      '<div class="settings-row"><span class="settings-label">' + t('version') + '</span><span class="settings-value">' + VERSION + '</span></div>' +
+      '<div class="settings-row"><span class="settings-label">' + t('last_update') + '</span><span class="settings-value">' + (store.state.trading.lastUpdate ? store.state.trading.lastUpdate.toLocaleTimeString() : '---') + '</span></div>' +
     '</div>';
 
   bindSettingsEvents();
@@ -1936,12 +2005,12 @@ function renderLevelsTable(levels, mode) {
   levels = rows;
   var html = '<table style="width:100%;font-size:.78rem;border-collapse:collapse">';
   html += '<tr style="color:var(--text-muted);text-align:center;font-size:.7rem;text-transform:uppercase;letter-spacing:.5px">';
-  html += '<th style="text-align:left">Lvl</th>';
-  html += '<th>Score</th>';
-  html += '<th>Conf</th>';
-  html += '<th>Monto USD</th>';
-  html += '<th>leverage</th>';
-  html += '<th>On</th>';
+  html += '<th style="text-align:left">' + t('lvl') + '</th>';
+  html += '<th>' + t('score') + '</th>';
+  html += '<th>' + t('conf') + '</th>';
+  html += '<th>' + t('usd_amount') + '</th>';
+  html += '<th>' + t('leverage') + '</th>';
+  html += '<th>' + t('on') + '</th>';
   html += '</tr>';
   levels.forEach(function(l) {
     var hasValues = (l.min_score > 0 || l.min_confidence > 0 || l.position_size_usdt > 0);
@@ -1955,7 +2024,7 @@ function renderLevelsTable(levels, mode) {
     html += '</tr>';
   });
   html += '</table>';
-  html += '<button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%" data-save-levels="' + mode + '">GUARDAR ' + mode.toUpperCase() + '</button>';
+  html += '<button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%" data-save-levels="' + mode + '">' + (mode === 'spot' ? t('save_levels') : t('save_levels_futures')) + '</button>';
   return html;
 }
 
@@ -1963,6 +2032,21 @@ function bindSettingsEvents() {
   var el = els['settings-content'];
   var auth = store.state.auth;
   var settings = store.state.settings;
+
+  var langSelect = el.querySelector('#lang-select');
+  if (langSelect) {
+    langSelect.addEventListener('change', function() {
+      var newLang = this.value;
+      loadStrings(newLang, renderSettings);
+      if (auth.selectedInscription && auth.address) {
+        api.post('/api/trading/preferences', {
+          inscriptionId: auth.selectedInscription,
+          address: auth.address,
+          language: newLang
+        }, true).catch(function(e) { console.error('Save language:', e); });
+      }
+    });
+  }
 
   var notifBtn = el.querySelector('#enable-notif-btn');
   if (notifBtn) {
@@ -1992,7 +2076,7 @@ function bindSettingsEvents() {
         spot_key: spotKey, spot_secret: spotSecret,
         futures_key: futuresKey, futures_secret: futuresSecret
       }, true)
-      .then(function() { toast('Claves API guardadas', 'success'); apiForm.classList.add('hidden'); loadSettingsData(); })
+      .then(function() { toast(t('api_keys_saved'), 'success'); apiForm.classList.add('hidden'); loadSettingsData(); })
       .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
   }
@@ -2028,7 +2112,7 @@ function bindSettingsEvents() {
         futures_min_score: parseInt(el.querySelector('#inp-futures-min-score')?.value) || 7
       };
       api.post('/api/trading/preferences', body, true)
-        .then(function() { toast('Preferencias guardadas', 'success'); prefsForm.classList.add('hidden'); loadSettingsData(); })
+        .then(function() { toast(t('prefs_saved'), 'success'); prefsForm.classList.add('hidden'); loadSettingsData(); })
         .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
   }
@@ -2043,7 +2127,7 @@ function bindSettingsEvents() {
       var body = { inscriptionId: auth.selectedInscription, address: auth.address };
       body[field] = newVal;
       api.post('/api/trading/preferences', body, true)
-        .then(function() { tog.classList.toggle('on'); settings.preferences[field] = newVal; toast(field.replace('_', ' ') + (newVal ? ' activado' : ' desactivado'), 'success'); })
+        .then(function() { tog.classList.toggle('on'); settings.preferences[field] = newVal; toast(field.replace('_', ' ') + ' ' + (newVal ? t('activated') : t('deactivated')), 'success'); })
         .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
   });
@@ -2074,7 +2158,7 @@ function bindSettingsEvents() {
         });
       }
       api.post('/api/trading/strategies/levels', { inscription_id: auth.selectedInscription, mode: mode, levels: levels }, true)
-        .then(function() { toast('Niveles ' + mode + ' guardados', 'success'); settings.levels[mode] = levels; })
+        .then(function() { toast(t('levels_saved') + ' ' + mode.toUpperCase(), 'success'); settings.levels[mode] = levels; })
         .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
   });
@@ -2086,7 +2170,7 @@ function bindSettingsEvents() {
       api.post('/api/trading/budget', { inscriptionId: auth.selectedInscription, mode: mode, budget: budget }, true)
         .then(function() {
           settings.preferences[mode + '_budget'] = budget;
-          toast('Presupuesto ' + mode + ' actualizado a $' + budget.toLocaleString(), 'success');
+          toast(t('budget_updated') + budget.toLocaleString(), 'success');
         })
         .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
@@ -2098,7 +2182,7 @@ function bindSettingsEvents() {
       var field = mode + '_enabled';
       var current = settings.preferences[field] || 0;
       if (current) {
-        if (!confirm('¿Desactivar bot ' + mode.toUpperCase() + '?')) return;
+        if (!confirm(t('confirm_disable_bot') + ' ' + mode.toUpperCase() + '?')) return;
       }
       var newVal = current ? 0 : 1;
       var body = { inscriptionId: auth.selectedInscription, address: auth.address };
@@ -2108,10 +2192,10 @@ function bindSettingsEvents() {
           settings.preferences[field] = newVal;
           btn.classList.toggle('active', !!newVal);
           btn.classList.toggle('inactive', !newVal);
-          btn.textContent = newVal ? 'Activo' : 'Inactivo';
+          btn.textContent = newVal ? t('active') : t('inactive');
           btn.style.background = newVal ? '#4CAF50' : '#333333';
           btn.style.color = newVal ? '#fff' : '#666';
-          toast(mode + (newVal ? ' activado' : ' desactivado'), 'success');
+          toast(mode.toUpperCase() + ' ' + (newVal ? t('enabled') : t('disabled')), 'success');
           loadSettingsData();
         })
         .catch(function(e) { toast('Error: ' + e.message, 'error'); });
@@ -2316,8 +2400,10 @@ function init() {
   bindEvents();
   setupStoreSubscribers();
 
-  restoreSession();
-  onHashChange();
+  loadStrings(currentLang, function() {
+    restoreSession();
+    onHashChange();
+  });
 
   window.onerror = function(msg, src, line) {
     toast('Error: ' + msg, 'error');

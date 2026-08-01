@@ -59,6 +59,7 @@ async function init() {
   try {
     db.run("ALTER TABLE inscription_preferences ADD COLUMN spot_budget REAL NOT NULL DEFAULT 100");
     db.run("ALTER TABLE inscription_preferences ADD COLUMN futures_budget REAL NOT NULL DEFAULT 200");
+    db.run("ALTER TABLE inscription_preferences ADD COLUMN language TEXT NOT NULL DEFAULT 'es'");
   } catch (_) {}
 
   db.run(`CREATE TABLE IF NOT EXISTS bot_strategies (
@@ -228,15 +229,16 @@ function upsertInscriptionPreferences(inscriptionId, address, prefs) {
   const stmt = db.prepare(`INSERT OR REPLACE INTO inscription_preferences
     (inscription_id, address, spot_enabled, futures_enabled, spot_position_size, futures_position_size,
      spot_max_positions, futures_max_positions, spot_min_score, futures_min_score,
-     spot_budget, futures_budget, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
+     spot_budget, futures_budget, language, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`);
   stmt.run([
     inscriptionId, address.toLowerCase(),
     prefs.spot_enabled ?? 1, prefs.futures_enabled ?? 1,
     prefs.spot_position_size ?? 10.0, prefs.futures_position_size ?? 10.0,
     prefs.spot_max_positions ?? 5, prefs.futures_max_positions ?? 5,
     prefs.spot_min_score ?? 6, prefs.futures_min_score ?? 7,
-    prefs.spot_budget ?? 100, prefs.futures_budget ?? 200
+    prefs.spot_budget ?? 100, prefs.futures_budget ?? 200,
+    prefs.language ?? 'es'
   ]);
   stmt.free();
   save();

@@ -187,7 +187,8 @@ router.get('/preferences/:inscriptionId', (req, res) => {
         spot_max_positions: 5,
         futures_max_positions: 5,
         spot_min_score: 6,
-        futures_min_score: 7
+        futures_min_score: 7,
+        language: 'es'
       };
     }
     res.json({ exito: true, data: prefs });
@@ -199,13 +200,14 @@ router.get('/preferences/:inscriptionId', (req, res) => {
 
 router.post('/preferences', (req, res) => {
   try {
-    const { inscriptionId, address, spot_enabled, futures_enabled, spot_position_size, futures_position_size, spot_max_positions, futures_max_positions, spot_min_score, futures_min_score } = req.body;
+    const { inscriptionId, address, spot_enabled, futures_enabled, spot_position_size, futures_position_size, spot_max_positions, futures_max_positions, spot_min_score, futures_min_score, language } = req.body;
     if (!inscriptionId || !address) {
       return res.status(400).json({ exito: false, error: 'inscriptionId and address are required' });
     }
     pool.upsertInscriptionPreferences(inscriptionId, address, {
       spot_enabled, futures_enabled, spot_position_size, futures_position_size,
-      spot_max_positions, futures_max_positions, spot_min_score, futures_min_score
+      spot_max_positions, futures_max_positions, spot_min_score, futures_min_score,
+      language
     });
     res.json({ exito: true, message: 'Preferences saved' });
   } catch (error) {
