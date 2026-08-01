@@ -1915,6 +1915,8 @@ function renderPositionItem(p) {
       '<span class="position-pnl ' + (isPos ? 'positive' : 'negative') + '" style="margin-left:auto">' + (isPos ? '+' : '') + pnl.toFixed(2) + ' USDT' + (isOpen ? '' : ' (' + pnlPct.toFixed(2) + '%)') + '</span>' +
     '</div>' +
     '<div class="position-details">' +
+      '<span class="position-id-label">' + t('id') + ': ' + (type === 'futures' ? 'F' : 'S') + (p.id || '?') + '</span>' +
+      '<span class="position-lvl-label">' + t('lvl') + ': ' + (type === 'futures' ? 'F' : 'S') + (p.level != null ? p.level : '?') + '</span>' +
       '<span>' + t('score') + ': ' + score + '/10</span>' +
       '<span>' + t('confidence') + ': ' + confidence + '/10</span>' +
       (investedUsdtFmt !== '—' ? '<span>' + t('invested') + ': $' + investedUsdtFmt + '</span>' : '') +
@@ -2200,8 +2202,9 @@ function renderLevelsTable(levels, mode) {
   html += '</tr>';
   levels.forEach(function(l) {
     var hasValues = (l.min_score > 0 || l.min_confidence > 0 || l.position_size_usdt > 0);
+    var lvlPrefix = mode === 'spot' ? 'S' : 'F';
     html += '<tr style="border-top:1px solid var(--border)">';
-    html += '<td style="text-align:left;font-weight:600;color:' + (hasValues ? 'var(--text-primary)' : 'var(--text-muted)') + '">' + l.level + '</td>';
+    html += '<td style="text-align:left;font-weight:600;color:' + (hasValues ? 'var(--text-primary)' : 'var(--text-muted)') + '">' + lvlPrefix + l.level + '</td>';
     html += '<td><input class="level-input" type="number" min="1" max="10" step="1" value="' + (l.min_score || '') + '" placeholder="—" data-mode="' + mode + '" data-level="' + l.level + '" data-field="min_score"></td>';
     html += '<td><input class="level-input" type="number" min="1" max="10" step="1" value="' + (l.min_confidence || '') + '" placeholder="—" data-mode="' + mode + '" data-level="' + l.level + '" data-field="min_confidence"></td>';
     html += '<td><input class="level-input" type="number" min="0" step="1" value="' + (l.position_size_usdt || '') + '" placeholder="—" data-mode="' + mode + '" data-level="' + l.level + '" data-field="position_size_usdt"></td>';
