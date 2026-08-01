@@ -79,8 +79,6 @@
   "open_badge": "[Open]",
   "closed": "[Closed]",
   "score": "Score",
-  "id": "ID",
-  "lvl": "LVL",
   "confidence": "Confidence",
   "invested": "Invested",
   "no_stop_manual": "⚠ No stop. Manual close",
