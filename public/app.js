@@ -2400,13 +2400,8 @@ function bindSettingsEvents() {
    PANEL (menu)
    ============================================ */
 function openPanel() {
-  if (window.innerWidth <= 1024) {
-    els['sidebar']?.classList.add('sidebar-open');
-    els['sidebar-backdrop']?.classList.remove('hidden');
-  } else {
-    els['right-panel'].classList.add('panel-open');
-    els['backdrop'].classList.remove('hidden');
-  }
+  els['right-panel'].classList.add('panel-open');
+  els['backdrop'].classList.remove('hidden');
 }
 function closePanel() {
   els['right-panel'].classList.remove('panel-open');
@@ -2457,12 +2452,7 @@ function bindEvents() {
     window.location.hash = '#/account';
   });
   els['menu-btn']?.addEventListener('click', function() {
-    if (window.innerWidth <= 1024) {
-      els['sidebar']?.classList.toggle('sidebar-open');
-      els['sidebar-backdrop']?.classList.toggle('visible');
-    } else {
-      openPanel();
-    }
+    openPanel();
   });
   els['opp-toggle-btn']?.addEventListener('click', function() {
     if (window.innerWidth <= 1024) {
