@@ -2204,7 +2204,7 @@ function renderLevelsTable(levels, mode) {
   levels.forEach(function(l) {
     var hasValues = (l.min_score > 0 || l.min_confidence > 0 || l.position_size_usdt > 0);
     var lvlPrefix = mode === 'spot' ? 'S' : 'F';
-    var idNum = 11 - l.level;
+    var idNum = mode === 'spot' ? (11 - l.level) : (21 - l.level);
     var idPrefix = mode === 'spot' ? 'S' : 'F';
     html += '<tr style="border-top:1px solid var(--border)">';
     html += '<td style="text-align:left;font-weight:600;color:' + (hasValues ? 'var(--text-primary)' : 'var(--text-muted)') + '">' + idPrefix + idNum + '</td>';
