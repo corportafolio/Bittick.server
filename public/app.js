@@ -2168,11 +2168,11 @@ function renderSettings() {
     '</div>' +
     '<div class="two-col-grid">' +
     '<div class="panel-card settings-card">' +
-      '<h3 class="bot-card-header"><span>' + t('levels_spot') + '</span><span class="bot-header-controls"><select class="budget-select" data-mode="spot"><option value="100"' + ((settings.preferences.spot_budget || 100) == 100 ? ' selected' : '') + '>$100</option><option value="1000"' + ((settings.preferences.spot_budget || 100) == 1000 ? ' selected' : '') + '>$1,000</option><option value="10000"' + ((settings.preferences.spot_budget || 100) == 10000 ? ' selected' : '') + '>$10,000</option></select><button class="toggle-bot-btn ' + (settings.preferences.spot_enabled ? 'active' : 'inactive') + '" data-mode="spot">' + (settings.preferences.spot_enabled ? t('active') : t('inactive')) + '</button></span></h3>' +
+      '<h3 class="bot-card-header"><span>' + t('levels_spot') + '</span><span class="bot-header-controls"><span class="recharge-btn" data-mode="spot">' + t('recharge') + '</span><div class="recharge-dropdown hidden" id="recharge-spot"><label class="recharge-option"><input type="radio" name="recharge-spot" value="100"> $100</label><label class="recharge-option"><input type="radio" name="recharge-spot" value="1000"> $1,000</label><label class="recharge-option"><input type="radio" name="recharge-spot" value="10000"> $10,000</label><button class="btn btn-primary btn-sm recharge-confirm" data-mode="spot">' + t('recharge_btn') + '</button></div><button class="toggle-bot-btn ' + (settings.preferences.spot_enabled ? 'active' : 'inactive') + '" data-mode="spot">' + (settings.preferences.spot_enabled ? t('active') : t('inactive')) + '</button></span></h3>' +
       '<div id="spot-levels-content">' + renderLevelsTable(settings.levels.spot || [], 'spot') + '</div>' +
     '</div>' +
     '<div class="panel-card settings-card">' +
-      '<h3 class="bot-card-header"><span>' + t('levels_futures') + '</span><span class="bot-header-controls"><select class="budget-select" data-mode="futures"><option value="200"' + ((settings.preferences.futures_budget || 200) == 200 ? ' selected' : '') + '>$200</option><option value="1000"' + ((settings.preferences.futures_budget || 200) == 1000 ? ' selected' : '') + '>$1,000</option><option value="10000"' + ((settings.preferences.futures_budget || 200) == 10000 ? ' selected' : '') + '>$10,000</option></select><button class="toggle-bot-btn ' + (settings.preferences.futures_enabled ? 'active' : 'inactive') + '" data-mode="futures">' + (settings.preferences.futures_enabled ? t('active') : t('inactive')) + '</button></span></h3>' +
+      '<h3 class="bot-card-header"><span>' + t('levels_futures') + '</span><span class="bot-header-controls"><span class="recharge-btn" data-mode="futures">' + t('recharge') + '</span><div class="recharge-dropdown hidden" id="recharge-futures"><label class="recharge-option"><input type="radio" name="recharge-futures" value="200"> $200</label><label class="recharge-option"><input type="radio" name="recharge-futures" value="1000"> $1,000</label><label class="recharge-option"><input type="radio" name="recharge-futures" value="10000"> $10,000</label><button class="btn btn-primary btn-sm recharge-confirm" data-mode="futures">' + t('recharge_btn') + '</button></div><button class="toggle-bot-btn ' + (settings.preferences.futures_enabled ? 'active' : 'inactive') + '" data-mode="futures">' + (settings.preferences.futures_enabled ? t('active') : t('inactive')) + '</button></span></h3>' +
       '<div id="futures-levels-content">' + renderLevelsTable(settings.levels.futures || [], 'futures') + '</div>' +
     '</div>' +
     '</div>' +
@@ -2381,14 +2381,35 @@ function bindSettingsEvents() {
     });
   });
 
-  el.querySelectorAll('.budget-select').forEach(function(sel) {
-    sel.addEventListener('change', function() {
-      var mode = sel.dataset.mode;
-      var budget = parseFloat(sel.value);
-      api.post('/api/trading/budget', { inscriptionId: auth.selectedInscription, mode: mode, budget: budget }, true)
+  el.querySelectorAll('.recharge-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var mode = btn.dataset.mode;
+      var dropdown = el.querySelector('#recharge-' + mode);
+      if (dropdown) dropdown.classList.toggle('hidden');
+    });
+  });
+
+  el.querySelectorAll('.recharge-confirm').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var mode = btn.dataset.mode;
+      var hasKey = mode === 'spot' ? settings.apiKeys.spot?.hasKey : settings.apiKeys.futures?.hasKey;
+      if (!hasKey) {
+        toast(t('recharge_no_keys'), 'warning');
+        return;
+      }
+      var selected = el.querySelector('input[name="recharge-' + mode + '"]:checked');
+      if (!selected) {
+        toast(t('recharge_select_amount'), 'warning');
+        return;
+      }
+      var amount = parseFloat(selected.value);
+      api.post('/api/trading/budget', { inscriptionId: auth.selectedInscription, mode: mode, budget: amount }, true)
         .then(function() {
-          settings.preferences[mode + '_budget'] = budget;
-          toast(t('budget_updated') + budget.toLocaleString(), 'success');
+          settings.preferences[mode + '_budget'] = (settings.preferences[mode + '_budget'] || 0) + amount;
+          toast(t('recharge_success') + '$' + amount.toLocaleString(), 'success');
+          var dropdown = el.querySelector('#recharge-' + mode);
+          if (dropdown) dropdown.classList.add('hidden');
+          selected.checked = false;
         })
         .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
