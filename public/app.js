@@ -2531,7 +2531,10 @@ function bindEvents() {
     opt.addEventListener('click', function() {
       var walletId = opt.dataset.wallet;
       var statusEl = opt.querySelector('.wallet-option-status');
-      if (statusEl && statusEl.classList.contains('wallet-not-installed')) {
+      var actuallyInstalled = walletId === 'unisat'
+        ? !!window.unisat
+        : !!(window.XverseProviders || (window.satsconnect && window.satsconnect.Wallet));
+      if (!actuallyInstalled) {
         var url = walletId === 'unisat' ? 'https://unisat.io/' : 'https://www.xverse.app/';
         window.open(url, '_blank');
         return;
@@ -2596,6 +2599,12 @@ function init() {
   };
   window.addEventListener('unhandledrejection', function(e) {
     toast('Error: ' + (e.reason?.message || 'Error'), 'error');
+  });
+
+  window.addEventListener('load', function() {
+    setTimeout(function() { detectWalletUI(); }, 500);
+    setTimeout(function() { detectWalletUI(); }, 1500);
+    setTimeout(function() { detectWalletUI(); }, 3000);
   });
 }
 
