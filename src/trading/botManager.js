@@ -121,7 +121,7 @@ async function evaluateAndExecute(signal, context = {}) {
         }
       }
 
-      const position = await executor.executeOrder(botType, signal, { usdAmount, leverage }, nivel);
+      const position = await executor.executeOrder(botType, signal, { usdAmount, leverage }, nivel, context.inscriptionId);
       position.confidence = signal.confidence;
       position.factors = signal.factors;
       position.risks = signal.risks;
@@ -149,7 +149,7 @@ async function cancelPositionById(id) {
   if (position.status !== "open") throw new Error(`Position #${id} is already ${position.status}`);
 
   if (position.order_id) {
-    await executor.cancelPosition(position.bot_type, position.asset, position.order_id);
+    await executor.cancelPosition(position.bot_type, position.asset, position.order_id, position.inscription_id);
   }
 
   store.cancelPosition(id);
@@ -293,7 +293,7 @@ async function monitorPositions() {
               logger.error("bot-manager", `Spot sell failed: ${sellError.message}`);
             }
           } else if (pos.order_id) {
-            await executor.cancelPosition(botType, pos.asset, pos.order_id);
+            await executor.cancelPosition(botType, pos.asset, pos.order_id, pos.inscription_id);
           }
           store.closePosition(pos.id, currentPrice, pnl, closeReason);
           logger.info("bot-manager", `Position #${pos.id} closed via ${closeReason}. PnL: $${pnl.pnl} (${pnl.pnlPercent}%)`);
@@ -307,8 +307,10 @@ async function monitorPositions() {
 
 function getBotStatus(type, address = null, inscriptionId = null) {
   const config = getBotConfig(type);
-  const positions = store.getPositions(type, "open", address);
-  const stats = store.getBotStats(type);
+  const positions = inscriptionId
+    ? store.getPositionsByInscription(inscriptionId, "open")
+    : store.getPositions(type, "open", address);
+  const stats = store.getBotStats(type, inscriptionId);
   let hasApiKey = false;
   if (inscriptionId) {
     const apiKey = pool.getBotApiKey(inscriptionId, type);
@@ -338,10 +340,12 @@ async function getBotBalance(type, address = null, inscriptionId = null) {
       budget = parseFloat(process.env[budgetKey] || (type === "spot" ? "100" : "200"));
     }
 
-    const stats = store.getBotStats(type);
+    const stats = store.getBotStats(type, inscriptionId);
     const realizedPnl = stats.totalPnl || 0;
 
-    const openPositions = store.getPositions(type, "open", address);
+    const openPositions = inscriptionId
+      ? store.getPositionsByInscription(inscriptionId, "open")
+      : store.getPositions(type, "open", address);
     const usedInPositions = openPositions.reduce((sum, p) => sum + parseFloat(p.usd_amount || 0), 0);
 
     const total = budget + realizedPnl;

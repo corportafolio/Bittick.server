@@ -8,7 +8,7 @@ function roundQuantity(botType, qty) {
   return rounded.toFixed(decimals);
 }
 
-async function executeOrder(botType, signal, options = {}, level = null) {
+async function executeOrder(botType, signal, options = {}, level = null, inscriptionId = null) {
   const side = signal.strategyType === "long" ? "BUY" : "SELL";
   const horizonte = signal.horizonte || "horas";
   const orderType = "MARKET";
@@ -49,12 +49,12 @@ async function executeOrder(botType, signal, options = {}, level = null) {
 
   try {
     if (botType === "futures") {
-      await binance.setLeverage(signal.asset, leverage);
+      await binance.setLeverage(signal.asset, leverage, inscriptionId);
       logger.info("execution", `Futures leverage set to ${leverage}x for ${signal.asset}`);
     }
 
     logger.info("execution", `Placing ${orderType} ${side} order on ${botType} for $${usdAmount.toFixed(2)} (${orderQuantity} BTC) at ~$${signal.currentPrice} (horizonte: ${horizonte})`);
-    const result = await binance.placeOrder(botType, signal.asset, side, orderQuantity.toString(), { type: orderType });
+    const result = await binance.placeOrder(botType, signal.asset, side, orderQuantity.toString(), { type: orderType }, inscriptionId);
     logger.info("execution", `Order placed: ${JSON.stringify(result)}`);
 
     const position = {
@@ -88,10 +88,10 @@ async function executeOrder(botType, signal, options = {}, level = null) {
   }
 }
 
-async function cancelPosition(botType, asset, orderId) {
+async function cancelPosition(botType, asset, orderId, inscriptionId = null) {
   try {
     logger.info("execution", `Cancelling order ${orderId} on ${botType}`);
-    const result = await binance.cancelOrder(botType, asset, orderId);
+    const result = await binance.cancelOrder(botType, asset, orderId, inscriptionId);
     logger.info("execution", `Order cancelled: ${JSON.stringify(result)}`);
     return result;
   } catch (error) {

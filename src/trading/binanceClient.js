@@ -1,6 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const logger = require('../logger/logger');
+const pool = require('../engine/poolStore');
 
 const SPOT_BASE = 'https://testnet.binance.vision';
 const FUTURES_BASE = 'https://testnet.binancefuture.com';
@@ -19,13 +20,21 @@ function getBase(type) {
   return type === 'futures' ? FUTURES_BASE : SPOT_BASE;
 }
 
-function getApiKey(type) {
+function getApiKey(type, inscriptionId) {
+  if (inscriptionId) {
+    const keys = pool.getBotApiKey(inscriptionId, type);
+    if (keys) return keys.api_key;
+  }
   return type === 'futures'
     ? process.env.BINANCE_FUTURES_API_KEY
     : process.env.BINANCE_SPOT_API_KEY;
 }
 
-function getApiSecret(type) {
+function getApiSecret(type, inscriptionId) {
+  if (inscriptionId) {
+    const keys = pool.getBotApiKey(inscriptionId, type);
+    if (keys) return keys.api_secret;
+  }
   return type === 'futures'
     ? process.env.BINANCE_FUTURES_API_SECRET
     : process.env.BINANCE_SPOT_API_SECRET;
@@ -42,11 +51,11 @@ async function publicRequest(type, path, params = {}) {
   return data;
 }
 
-async function signedRequest(type, method, path, params = {}) {
+async function signedRequest(type, method, path, params = {}, inscriptionId = null) {
   const base = getBase(type);
   const prefix = apiPrefix(type);
-  const apiKey = getApiKey(type);
-  const apiSecret = getApiSecret(type);
+  const apiKey = getApiKey(type, inscriptionId);
+  const apiSecret = getApiSecret(type, inscriptionId);
   if (!apiKey || !apiSecret) {
     throw new Error(`Binance ${type} API keys not configured`);
   }
@@ -107,7 +116,7 @@ async function get24hrTicker(symbol = 'BTCUSDT', type = 'spot') {
   };
 }
 
-async function placeOrder(type, symbol, side, quantity, options = {}) {
+async function placeOrder(type, symbol, side, quantity, options = {}, inscriptionId = null) {
   const params = {
     symbol,
     side,
@@ -122,40 +131,40 @@ async function placeOrder(type, symbol, side, quantity, options = {}) {
     params.positionSide = options.positionSide || 'BOTH';
   }
   const path = type === 'futures' ? '/v1/order' : '/v3/order';
-  return signedRequest(type, 'POST', path, params);
+  return signedRequest(type, 'POST', path, params, inscriptionId);
 }
 
-async function cancelOrder(type, symbol, orderId) {
+async function cancelOrder(type, symbol, orderId, inscriptionId = null) {
   const path = type === 'futures' ? '/v1/order' : '/v3/order';
-  return signedRequest(type, 'DELETE', path, { symbol, orderId });
+  return signedRequest(type, 'DELETE', path, { symbol, orderId }, inscriptionId);
 }
 
-async function getAccountInfo(type) {
+async function getAccountInfo(type, inscriptionId = null) {
   const path = type === 'futures' ? '/v2/account' : '/v3/account';
-  return signedRequest(type, 'GET', path);
+  return signedRequest(type, 'GET', path, {}, inscriptionId);
 }
 
-async function getPositionRisk(type) {
+async function getPositionRisk(type, inscriptionId = null) {
   if (type !== 'futures') return [];
-  return signedRequest(type, 'GET', '/v2/positionRisk');
+  return signedRequest(type, 'GET', '/v2/positionRisk', {}, inscriptionId);
 }
 
-async function getOpenOrders(type, symbol) {
+async function getOpenOrders(type, symbol, inscriptionId = null) {
   const path = type === 'futures' ? '/v1/openOrders' : '/v3/openOrders';
-  return signedRequest(type, 'GET', path, { symbol });
+  return signedRequest(type, 'GET', path, { symbol }, inscriptionId);
 }
 
-async function setLeverage(symbol, leverage) {
-  return signedRequest('futures', 'POST', '/v1/leverage', { symbol, leverage });
+async function setLeverage(symbol, leverage, inscriptionId = null) {
+  return signedRequest('futures', 'POST', '/v1/leverage', { symbol, leverage }, inscriptionId);
 }
 
-async function getBalance(type) {
+async function getBalance(type, inscriptionId = null) {
   if (type === 'futures') {
-    const acc = await getAccountInfo('futures');
+    const acc = await getAccountInfo('futures', inscriptionId);
     const usdt = acc.assets?.find(a => a.asset === 'USDT');
     return { total: parseFloat(usdt?.walletBalance || 0), available: parseFloat(usdt?.availableBalance || 0) };
   }
-  const acc = await getAccountInfo('spot');
+  const acc = await getAccountInfo('spot', inscriptionId);
   const usdt = acc.balances?.find(b => b.asset === 'USDT');
   return { total: parseFloat(usdt?.free || 0) + parseFloat(usdt?.locked || 0), available: parseFloat(usdt?.free || 0) };
 }

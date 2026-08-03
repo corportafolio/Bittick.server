@@ -564,15 +564,27 @@ function cleanupOldPositions(daysOld = 30, maxClosed = 50) {
   return rows.length;
 }
 
-function getBotStats(type) {
-  const openPositions = getPositions(type, 'open');
+function getBotStats(type, inscriptionId) {
+  const openPositions = inscriptionId
+    ? getPositionsByInscription(inscriptionId, 'open')
+    : getPositions(type, 'open');
   const totalPnl = (() => {
-    const stmt = db.prepare(`SELECT COALESCE(SUM(pnl), 0) as total FROM (
+    let sql = `SELECT COALESCE(SUM(pnl), 0) as total FROM (
       SELECT pnl FROM positions WHERE bot_type = ? AND status IN ('closed','cancelled')
       UNION ALL
       SELECT pnl FROM pnl_history WHERE bot_type = ?
-    )`);
-    stmt.bind([type, type]);
+    )`;
+    let params = [type, type];
+    if (inscriptionId) {
+      sql = `SELECT COALESCE(SUM(pnl), 0) as total FROM (
+        SELECT pnl FROM positions WHERE bot_type = ? AND inscription_id = ? AND status IN ('closed','cancelled')
+        UNION ALL
+        SELECT pnl FROM pnl_history WHERE bot_type = ? AND inscription_id = ?
+      )`;
+      params = [type, inscriptionId, type, inscriptionId];
+    }
+    const stmt = db.prepare(sql);
+    stmt.bind(params);
     if (stmt.step()) { const r = stmt.getAsObject(); stmt.free(); return r.total; }
     stmt.free();
     return 0;
