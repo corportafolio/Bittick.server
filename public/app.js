@@ -2154,6 +2154,11 @@ function renderSettings() {
           '<label style="color:var(--text-secondary);font-size:.75rem">' + t('futures') + '</label>' +
           '<input type="text" class="form-input" id="inp-futures-key" placeholder="Futures API Key">' +
           '<input type="password" class="form-input" id="inp-futures-secret" placeholder="Futures Secret Key">' +
+          '<div class="apikeys-hint" style="margin-top:8px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:.75rem;color:var(--text-muted)">' +
+            t('api_keys_hint') + '<br>' +
+            '<a href="https://www.binance.com/en/my/settings/api-management" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">' + t('api_keys_spot_link') + '</a><br>' +
+            '<a href="https://www.binance.com/en/my/settings/api-management" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">' + t('api_keys_futures_link') + '</a>' +
+          '</div>' +
           '<div class="form-row">' +
             '<button class="btn btn-primary btn-sm" id="save-apikeys-btn">' + t('save') + '</button>' +
             '<button class="btn btn-secondary btn-sm" id="cancel-apikeys-btn">' + t('cancel') + '</button>' +
