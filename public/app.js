@@ -336,9 +336,18 @@ function detectInstalledWallets() {
 
 function connectWallet(walletId) {
   if (walletId === 'unisat') {
-    return window.unisat.requestAccounts().then(function(accs) {
-      if (!accs || !accs.length) throw new Error(t('no_accounts_detected'));
-      return accs[0];
+    return new Promise(function(resolve, reject) {
+      var timeout = setTimeout(function() {
+        reject(new Error('La wallet no respondió. Abrí UniSat e intentá de nuevo.'));
+      }, 15000);
+      window.unisat.requestAccounts().then(function(accs) {
+        clearTimeout(timeout);
+        if (!accs || !accs.length) throw new Error(t('no_accounts_detected'));
+        resolve(accs[0]);
+      }).catch(function(err) {
+        clearTimeout(timeout);
+        reject(err);
+      });
     });
   }
   if (walletId === 'xverse') {
@@ -359,6 +368,17 @@ function connectWallet(walletId) {
     });
   }
   return Promise.reject(new Error(t('error_wallet_not_supported') + ': ' + walletId));
+}
+
+function connectWalletWithRetry(walletId, retries, delayMs) {
+  return connectWallet(walletId).catch(function(err) {
+    if (retries <= 0) throw err;
+    return new Promise(function(resolve) {
+      setTimeout(resolve, delayMs);
+    }).then(function() {
+      return connectWalletWithRetry(walletId, retries - 1, delayMs);
+    });
+  });
 }
 
 function getNonce(address) {
@@ -800,7 +820,7 @@ function fullLoginFlow(walletId) {
     .then(function() {
       if (!walletId) throw new Error(t('select_wallet_to_connect'));
       statusEl.textContent = t('connecting_wallet');
-      return connectWallet(walletId);
+      return connectWalletWithRetry(walletId, 3, 2000);
     })
     .then(function(addr) {
       address = addr;
