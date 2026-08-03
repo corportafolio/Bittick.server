@@ -90,7 +90,7 @@ router.get('/positions', (req, res) => {
     const includeClosed = req.query.include_closed === "true";
     let positions;
     if (inscriptionId) {
-      positions = store.getPositionsByInscription(inscriptionId, status, includeClosed);
+      positions = store.getPositionsByInscription(inscriptionId, status, includeClosed, botType);
     } else {
       positions = store.getPositions(botType, status, address, includeClosed);
     }

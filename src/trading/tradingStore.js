@@ -596,7 +596,7 @@ function getBotStats(type, inscriptionId) {
 // Use poolStore.getBotApiKey, poolStore.getUserInscriptions, etc.
 
 // Bot status/positions by inscription
-function getPositionsByInscription(inscriptionId, status = 'open', includeClosed = false) {
+function getPositionsByInscription(inscriptionId, status = 'open', includeClosed = false, botType = null) {
   let sql;
   const params = [inscriptionId];
   if (includeClosed) {
@@ -604,6 +604,10 @@ function getPositionsByInscription(inscriptionId, status = 'open', includeClosed
   } else {
     sql = "SELECT * FROM positions WHERE inscription_id = ? AND status = ?";
     params.push(status);
+  }
+  if (botType) {
+    sql += " AND bot_type = ?";
+    params.push(botType);
   }
   sql += " ORDER BY opened_at DESC";
   const stmt = db.prepare(sql);
