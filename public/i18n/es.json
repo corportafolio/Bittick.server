@@ -104,6 +104,7 @@
   "total_pnl": "PnL total",
   "available_balance": "Balance disponible",
   "total_balance": "Balance total",
+  "balance_disabled": "Desactivado",
   "settings_account": "CUENTA BITTICK",
   "bot": "Bot",
   "wallet": "Wallet",

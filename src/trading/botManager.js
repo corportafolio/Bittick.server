@@ -331,6 +331,13 @@ function getBotStatus(type, address = null, inscriptionId = null) {
 
 async function getBotBalance(type, address = null, inscriptionId = null) {
   try {
+    if (inscriptionId) {
+      const apiKey = pool.getBotApiKey(inscriptionId, type);
+      if (!apiKey) {
+        return { total: null, available: null };
+      }
+    }
+
     let budget;
     if (inscriptionId) {
       const prefs = pool.getInscriptionPreferences(inscriptionId);

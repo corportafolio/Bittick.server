@@ -1013,9 +1013,10 @@ var polling = {
   fetchPositions: function() {
     var types = ['spot', 'futures'];
     var auth = !!store.state.auth.address;
+    var id = store.state.auth.selectedInscription;
     if (!auth) return;
     types.forEach(function(type) {
-      api.get('/api/trading/positions?include_closed=true&type=' + type, true)
+      api.get('/api/trading/positions?include_closed=true&type=' + type + (id ? '&inscription_id=' + encodeURIComponent(id) : ''), true)
         .then(function(json) {
           var open = (json.data || []).filter(function(p) { return p.status === 'open'; });
           var closed = (json.data || []).filter(function(p) { return p.status === 'closed'; });
@@ -2066,8 +2067,8 @@ function renderBotCard(elId, status, type) {
     '<div class="bot-row"><span class="bot-label">' + t('open_positions_label') + '</span><span class="bot-value">' + openPositions + '/' + maxPositions + '</span></div>' +
     '<div class="bot-row"><span class="bot-label">' + t('position_size') + '</span><span class="bot-value">' + positionSize + ' USDT</span></div>' +
     '<div class="bot-row"><span class="bot-label">PnL total</span><span class="bot-value ' + (totalPnl >= 0 ? 'running' : 'stopped') + '">' + (totalPnl >= 0 ? '+' : '') + totalPnl.toFixed(2) + ' USDT</span></div>' +
-    '<div class="bot-row"><span class="bot-label">' + t('balance_available') + '</span><span class="bot-value">' + (balanceAvail > 0 ? formatPrice(balanceAvail) : '---') + '</span></div>' +
-    '<div class="bot-row"><span class="bot-label">' + t('balance_total') + '</span><span class="bot-value">' + (balanceTotal > 0 ? formatPrice(balanceTotal) : '---') + '</span></div>'
+    '<div class="bot-row"><span class="bot-label">' + t('balance_available') + '</span><span class="bot-value">' + (balanceAvail === null ? t('balance_disabled') : (balanceAvail > 0 ? formatPrice(balanceAvail) : '---')) + '</span></div>' +
+    '<div class="bot-row"><span class="bot-label">' + t('balance_total') + '</span><span class="bot-value">' + (balanceTotal === null ? t('balance_disabled') : (balanceTotal > 0 ? formatPrice(balanceTotal) : '---')) + '</span></div>'
   );
 }
 
