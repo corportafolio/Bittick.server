@@ -68,8 +68,8 @@ async function evaluateAndExecute(signal, context = {}) {
     }
 
     const nivel = matchedLevel.level;
-    const usdAmount = matchedLevel.position_size_usdt;
-    const leverage = matchedLevel.leverage || 1;
+    let usdAmount = matchedLevel.position_size_usdt;
+    let leverage = matchedLevel.leverage || 1;
 
     const openPositions = store.getPositionsByInscription(context.inscriptionId, "open").filter(function(p) { return p.bot_type === botType; });
     if (openPositions.length >= config.max_positions) {
