@@ -281,7 +281,12 @@ var api = {
     }
     var opts = { method: method, headers: headers };
     if (body) opts.body = JSON.stringify(body);
-    return fetch(API_BASE + endpoint, opts)
+    var url = API_BASE + endpoint;
+    if (method === 'GET') {
+      var sep = url.indexOf('?') >= 0 ? '&' : '?';
+      url += sep + '_t=' + Date.now();
+    }
+    return fetch(url, opts)
       .then(function(r) {
         return r.json().then(function(json) {
           if (r.status === 300) return json;
