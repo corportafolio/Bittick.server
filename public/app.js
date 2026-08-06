@@ -1936,7 +1936,7 @@ function renderPositionItem(p) {
       '<span class="position-pnl ' + (isPos ? 'positive' : 'negative') + '" style="margin-left:auto">' + (isPos ? '+' : '') + pnl.toFixed(2) + ' USDT' + (isOpen ? '' : ' (' + pnlPct.toFixed(2) + '%)') + '</span>' +
     '</div>' +
     '<div class="position-details">' +
-      '<span class="position-id-label">' + t('id') + ': ' + (type === 'futures' ? 'F' : 'S') + (p.id || '?') + '</span>' +
+      '<span class="position-id-label">' + t('id') + ': ' + (type === 'futures' ? 'F' : 'S') + (p.level != null ? (type === 'futures' ? 21 - p.level : 11 - p.level) : (p.id || '?')) + '</span>' +
       '<span class="position-lvl-label">' + t('lvl') + ': ' + (type === 'futures' ? 'F' : 'S') + (p.level != null ? p.level : '?') + '</span>' +
       '<span>' + t('score') + ': ' + score + '/10</span>' +
       '<span>' + t('confidence') + ': ' + confidence + '/10</span>' +
