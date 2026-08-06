@@ -81,8 +81,8 @@ async function analyze(signal) {
   const semaforo = calcularSemaforo(score, confidence);
   const datos = construirDatos(signal);
 
-  // Solo usar IA para oportunidades de alta calidad (score >= 7 Y confidence >= 7)
-  const usarIA = score >= 5 && confidence >= 4;
+  // Solo usar IA para oportunidades de alta calidad (score >= 6 Y confidence >= 6)
+  const usarIA = score >= 6 && confidence >= 6;
 
   if (usarIA) {
     const datos = construirDatos(signal);
