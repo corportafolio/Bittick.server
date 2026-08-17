@@ -268,10 +268,10 @@ async function monitorPositions() {
         let shouldClose = false;
         let closeReason = "";
 
-        if (pos.target && pos.strategy_type === "long" && currentPrice >= pos.target && currentPrice <= pos.target * 1.02) {
+        if (pos.target && pos.strategy_type === "long" && currentPrice >= pos.target) {
           shouldClose = true;
           closeReason = "take profit";
-        } else if (pos.target && pos.strategy_type === "short" && currentPrice <= pos.target && currentPrice >= pos.target * 0.98) {
+        } else if (pos.target && pos.strategy_type === "short" && currentPrice <= pos.target) {
           shouldClose = true;
           closeReason = "take profit";
         } else if (pos.stop_loss && pos.strategy_type === "long" && currentPrice <= pos.stop_loss) {
@@ -283,17 +283,21 @@ async function monitorPositions() {
         }
 
         if (shouldClose) {
-          if (pos.bot_type === "spot" && pos.quantity > 0) {
-            try {
+          try {
+            if (pos.bot_type === "spot" && pos.quantity > 0) {
               const sellQty = pos.quantity.toFixed(6);
               logger.info("bot-manager", `Spot: placing SELL order for ${sellQty} ${pos.asset}`);
               await binance.placeOrder("spot", pos.asset, "SELL", sellQty);
               logger.info("bot-manager", `Spot: SELL executed at ~$${currentPrice}`);
-            } catch (sellError) {
-              logger.error("bot-manager", `Spot sell failed: ${sellError.message}`);
+            } else if (pos.bot_type === "futures" && pos.quantity > 0) {
+              const closeSide = pos.strategy_type === "long" ? "SELL" : "BUY";
+              const closeQty = pos.quantity.toFixed(4);
+              logger.info("bot-manager", `Futures: placing ${closeSide} order for ${closeQty} ${pos.asset}`);
+              await binance.placeOrder(botType, pos.asset, closeSide, closeQty);
+              logger.info("bot-manager", `Futures: ${closeSide} executed at ~$${currentPrice}`);
             }
-          } else if (pos.order_id) {
-            await executor.cancelPosition(botType, pos.asset, pos.order_id, pos.inscription_id);
+          } catch (closeError) {
+            logger.error("bot-manager", `Close order failed for position #${pos.id}: ${closeError.message}`);
           }
           store.closePosition(pos.id, currentPrice, pnl, closeReason);
           logger.info("bot-manager", `Position #${pos.id} closed via ${closeReason}. PnL: $${pnl.pnl} (${pnl.pnlPercent}%)`);
