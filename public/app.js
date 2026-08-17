@@ -2154,8 +2154,7 @@ function renderSettings() {
       '<h3>' + t('api_keys_binance') + '</h3>' +
       '<div class="settings-row"><span class="settings-label">' + t('spot') + '</span><span class="settings-value ' + (settings.apiKeys.spot?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.spot?.hasKey ? t('configured') : t('not_configured')) + '</span></div>' +
       '<div class="settings-row"><span class="settings-label">' + t('futures') + '</span><span class="settings-value ' + (settings.apiKeys.futures?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.futures?.hasKey ? t('configured') : t('not_configured')) + '</span></div>' +
-      '<button class="btn btn-secondary btn-sm" style="margin-top:8px" id="edit-apikeys-btn">' + t('edit_keys') + '</button>' +
-      '<div id="apikeys-form" class="hidden">' +
+      '<div id="apikeys-form">' +
         '<div class="settings-form">' +
           '<label style="color:var(--text-secondary);font-size:.75rem">' + t('spot') + '</label>' +
           '<input type="text" class="form-input" id="inp-spot-key" placeholder="Spot API Key">' +
@@ -2165,8 +2164,8 @@ function renderSettings() {
           '<input type="password" class="form-input" id="inp-futures-secret" placeholder="Futures Secret Key">' +
           '<div class="apikeys-hint" style="margin-top:8px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:.75rem;color:var(--text-muted)">' +
             t('api_keys_hint') + '<br>' +
-            '<a href="https://www.binance.com/en/my/settings/api-management" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">' + t('api_keys_spot_link') + '</a><br>' +
-            '<a href="https://www.binance.com/en/my/settings/api-management" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">' + t('api_keys_futures_link') + '</a>' +
+            '<a href="https://testnet.binance.vision/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">' + t('api_keys_spot_link') + '</a><br>' +
+            '<a href="https://testnet.binancefuture.com/en/futures-TNG" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">' + t('api_keys_futures_link') + '</a>' +
           '</div>' +
           '<div class="form-row">' +
             '<button class="btn btn-primary btn-sm" id="save-apikeys-btn">' + t('save') + '</button>' +
@@ -2303,7 +2302,7 @@ function bindSettingsEvents() {
         spot_key: spotKey, spot_secret: spotSecret,
         futures_key: futuresKey, futures_secret: futuresSecret
       }, true)
-      .then(function() { toast(t('api_keys_saved'), 'success'); apiForm.classList.add('hidden'); loadSettingsData(); })
+      .then(function() { toast(t('api_keys_saved'), 'success'); loadSettingsData(); })
       .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
   }
