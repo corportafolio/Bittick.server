@@ -1087,12 +1087,15 @@ function updateMenuAuthState() {
   var isConnected = auth.address && auth.verified;
   var walletInfo = document.getElementById('wallet-info');
   var walletAddress = document.getElementById('wallet-address');
+  var connectBtn = document.getElementById('wallet-connect-btn');
 
   if (isConnected) {
     if (walletInfo) walletInfo.classList.remove('hidden');
     if (walletAddress) walletAddress.textContent = truncateAddress(auth.address);
+    if (connectBtn) connectBtn.style.display = 'none';
   } else {
     if (walletInfo) walletInfo.classList.add('hidden');
+    if (connectBtn) connectBtn.style.display = '';
   }
 }
 
