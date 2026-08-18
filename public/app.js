@@ -2213,7 +2213,7 @@ function renderSettings() {
           '<div class="apikeys-hint" style="margin-top:8px;padding:10px;background:var(--surface-2);border-radius:var(--radius-sm);font-size:.75rem;color:var(--text-muted)">' +
             t('api_keys_hint') + '<br>' +
             '<a href="https://testnet.binance.vision/" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">' + t('api_keys_spot_link') + '</a><br>' +
-            '<a href="https://testnet.binancefuture.com/en/futures-TNG" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">' + t('api_keys_futures_link') + '</a>' +
+            '<a href="https://demo.binance.com" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline">' + t('api_keys_futures_link') + '</a>' +
           '</div>' +
           '<div class="form-row">' +
             '<button class="btn btn-primary btn-sm" id="save-apikeys-btn">' + t('save') + '</button>' +

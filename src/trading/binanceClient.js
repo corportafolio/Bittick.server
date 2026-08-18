@@ -4,7 +4,7 @@ const logger = require('../logger/logger');
 const pool = require('../engine/poolStore');
 
 const SPOT_BASE = 'https://testnet.binance.vision';
-const FUTURES_BASE = 'https://testnet.binancefuture.com';
+const FUTURES_BASE = 'https://demo-fapi.binance.com';
 const MAINNET_SPOT_BASE = 'https://api.binance.com';
 const MAINNET_FUTURES_BASE = 'https://fapi.binance.com';
 
