@@ -150,7 +150,10 @@ var store = {
       botNum: null,
       tier: null,
       botImageUrl: null,
-      botName: null
+      botName: null,
+      paymentAddress: null,
+      paymentPublicKey: null,
+      ordinalsPublicKey: null
     },
     trading: {
       opportunities: [],
@@ -333,9 +336,17 @@ function hideModal() {
 /* ============================================
    AUTH MODULE — Multi-wallet support
    ============================================ */
+function getXverseProvider() {
+  if (typeof window === 'undefined') return null;
+  if (window.XverseProviders && window.XverseProviders.BitcoinProvider) return window.XverseProviders.BitcoinProvider;
+  if (window.BitcoinProvider) return window.BitcoinProvider;
+  if (window.satsconnect && window.satsconnect.Wallet) return window.satsconnect.Wallet;
+  return null;
+}
+
 function detectInstalledWallets() {
   var unisat = !!window.unisat;
-  var xverse = !!(window.XverseProviders || (window.satsconnect && window.satsconnect.Wallet));
+  var xverse = getXverseProvider() !== null;
   return { unisat: unisat, xverse: xverse };
 }
 
@@ -357,17 +368,38 @@ function connectWallet(walletId) {
   }
   if (walletId === 'xverse') {
     return new Promise(function(resolve, reject) {
-      var provider = window.XverseProviders && window.XverseProviders['xverse'];
+      var provider = getXverseProvider();
       if (!provider) return reject(new Error(t('xverse_not_installed')));
-      provider.connect().then(function(response) {
-        if (response.addresses && response.addresses.length) {
-          var ord = response.addresses.find(function(a) { return a.purpose === 'ordinals'; });
-          var pay = response.addresses.find(function(a) { return a.purpose === 'payment'; });
-          resolve((ord || pay || response.addresses[0]).address);
-        } else {
-          reject(new Error(t('connection_cancelled')));
+      var timeout = setTimeout(function() {
+        reject(new Error('Xverse no respondió. Abrí Xverse e intentá de nuevo.'));
+      }, 15000);
+      provider.request('wallet_connect', {
+        addresses: ['ordinals', 'payment'],
+        message: 'Conectar a Bittick',
+        network: 'Mainnet'
+      }).then(function(response) {
+        clearTimeout(timeout);
+        var addrs = [];
+        if (response && response.addresses) {
+          addrs = response.addresses;
+        } else if (response && response.result && response.result.addresses) {
+          addrs = response.result.addresses;
         }
+        if (!addrs.length) return reject(new Error(t('connection_cancelled')));
+        var ord = null, pay = null;
+        for (var i = 0; i < addrs.length; i++) {
+          if (addrs[i].purpose === 'ordinals') ord = addrs[i];
+          else if (addrs[i].purpose === 'payment') pay = addrs[i];
+        }
+        if (!ord) { ord = addrs[0]; if (addrs.length > 1) pay = addrs[1]; }
+        store.dispatch('SET_AUTH', {
+          paymentAddress: pay ? pay.address : null,
+          paymentPublicKey: pay ? pay.publicKey : null,
+          ordinalsPublicKey: ord ? ord.publicKey : null
+        });
+        resolve(ord.address);
       }).catch(function(err) {
+        clearTimeout(timeout);
         reject(new Error(err.message || t('error_connecting_xverse')));
       });
     });
@@ -402,15 +434,24 @@ function signMessage(walletId, message, address) {
   }
   if (walletId === 'xverse') {
     return new Promise(function(resolve, reject) {
-      var provider = window.XverseProviders && window.XverseProviders['xverse'];
+      var provider = getXverseProvider();
       if (!provider) return reject(new Error(t('xverse_not_installed')));
-      provider.signMessage(message, address).then(function(response) {
-        if (response.signature) {
-          resolve(response.signature);
+      var timeout = setTimeout(function() {
+        reject(new Error('Xverse no respondió al firmar.'));
+      }, 15000);
+      provider.request('signMessage', { address: address, message: message }).then(function(response) {
+        clearTimeout(timeout);
+        var sig = null;
+        if (response && response.signature) sig = response.signature;
+        else if (response && response.result && response.result.signature) sig = response.result.signature;
+        else if (typeof response === 'string') sig = response;
+        if (sig) {
+          resolve(sig);
         } else {
           reject(new Error(t('signature_cancelled')));
         }
       }).catch(function(err) {
+        clearTimeout(timeout);
         reject(new Error(err.message || t('error_signing_xverse')));
       });
     });
@@ -450,6 +491,9 @@ function saveSession() {
     tier: s.auth.tier,
     botImageUrl: s.auth.botImageUrl,
     botName: s.auth.botName,
+    paymentAddress: s.auth.paymentAddress || null,
+    paymentPublicKey: s.auth.paymentPublicKey || null,
+    ordinalsPublicKey: s.auth.ordinalsPublicKey || null,
     expiresAt: Date.now() + SESSION_EXPIRY
   };
   try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch(e) {}
@@ -473,7 +517,10 @@ function restoreSession() {
       botNum: session.botNum,
       tier: session.tier,
       botImageUrl: session.botImageUrl,
-      botName: session.botName
+      botName: session.botName,
+      paymentAddress: session.paymentAddress || null,
+      paymentPublicKey: session.paymentPublicKey || null,
+      ordinalsPublicKey: session.ordinalsPublicKey || null
     });
     // Update header and menu bot image
     updateHeaderBotImage();
@@ -2154,7 +2201,8 @@ function renderSettings() {
       '<h3>' + t('api_keys_binance') + '</h3>' +
       '<div class="settings-row"><span class="settings-label">' + t('spot') + '</span><span class="settings-value ' + (settings.apiKeys.spot?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.spot?.hasKey ? t('configured') : t('not_configured')) + '</span></div>' +
       '<div class="settings-row"><span class="settings-label">' + t('futures') + '</span><span class="settings-value ' + (settings.apiKeys.futures?.hasKey ? 'positive' : 'negative') + '">' + (settings.apiKeys.futures?.hasKey ? t('configured') : t('not_configured')) + '</span></div>' +
-      '<div id="apikeys-form">' +
+      '<button class="btn btn-secondary btn-sm" style="margin-top:8px" id="edit-apikeys-btn">' + t('edit_keys') + '</button>' +
+      '<div id="apikeys-form" class="hidden">' +
         '<div class="settings-form">' +
           '<label style="color:var(--text-secondary);font-size:.75rem">' + t('spot') + '</label>' +
           '<input type="text" class="form-input" id="inp-spot-key" placeholder="Spot API Key">' +
@@ -2302,7 +2350,7 @@ function bindSettingsEvents() {
         spot_key: spotKey, spot_secret: spotSecret,
         futures_key: futuresKey, futures_secret: futuresSecret
       }, true)
-      .then(function() { toast(t('api_keys_saved'), 'success'); loadSettingsData(); })
+      .then(function() { toast(t('api_keys_saved'), 'success'); apiForm.classList.add('hidden'); loadSettingsData(); })
       .catch(function(e) { toast('Error: ' + e.message, 'error'); });
     });
   }
@@ -2587,7 +2635,7 @@ function bindEvents() {
       var statusEl = opt.querySelector('.wallet-option-status');
       var actuallyInstalled = walletId === 'unisat'
         ? !!window.unisat
-        : !!(window.XverseProviders || (window.satsconnect && window.satsconnect.Wallet));
+        : getXverseProvider() !== null;
       if (!actuallyInstalled) {
         var url = walletId === 'unisat' ? 'https://unisat.io/' : 'https://www.xverse.app/';
         window.open(url, '_blank');
@@ -2659,6 +2707,8 @@ function init() {
     setTimeout(function() { detectWalletUI(); }, 500);
     setTimeout(function() { detectWalletUI(); }, 1500);
     setTimeout(function() { detectWalletUI(); }, 3000);
+    setTimeout(function() { detectWalletUI(); }, 5000);
+    setTimeout(function() { detectWalletUI(); }, 8000);
   });
 }
 
